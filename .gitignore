@@ -1,0 +1,28 @@
+# build output
+build/
+dist/
+*.o
+*.d
+*.elf
+*.3dsx
+*.smdh
+*.exe
+__pycache__/
+*.pyc
+
+# release zips are attached to GitHub releases, not committed
+releases/
+
+# never commit game data or saves
+*.gba
+*.sav
+*.sps
+*.state
+*.ss
+*.cia
+*.thb
+roms/
+goldensunsaves/
+
+# third-party tools shipped only in the release zip
+tools/patcher/bin/*.exe
