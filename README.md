@@ -13,7 +13,7 @@ Play **Golden Sun** and **Golden Sun: The Lost Age** on a Nintendo 3DS with a to
 - A Windows PC to run the installer/patcher (PowerShell, included in Windows).
 
 ## Install (easy way)
-1. Download `build.zip` from the [latest release](../../releases) and unzip it.
+1. Download `GoldenSun3DS_Patcher.zip` from the [latest release](../../releases) and unzip it.
 2. Double-click **Install.bat**.
 3. Pick **New 3DS** (two cores, aims for 60 fps) or **Old 3DS** (single core, about 25-35 fps).
 4. Choose **.cia** (one installable file with your ROMs inside) or **SD card files**, pick your ROM(s) (optionally your `.sav` files) and press **Build**.
@@ -41,7 +41,7 @@ Needs [devkitPro](https://devkitpro.org) (devkitARM + libctru + 3ds tools), Pyth
 git clone --recurse-submodules <this repo>
 # one-time: build the mGBA core for the 3DS (see docs/BUILDING.md), then
 make                      # -> build/app/GoldenSun3DS.3dsx
-powershell -ExecutionPolicy Bypass -File tools/make_dist.ps1   # -> dist/releases/v<version>/build.zip
+powershell -ExecutionPolicy Bypass -File tools/make_dist.ps1   # -> dist/releases/v<version>/GoldenSun3DS_Patcher.zip
 python3 tools/selftest.py # host-side tests (needs gcc and a host build of mGBA, see docs/BUILDING.md)
 ```
 `tools/make_dist.ps1` also needs `makerom.exe` and `bannertool.exe` (both MIT licensed) in `tools/patcher/bin/`.

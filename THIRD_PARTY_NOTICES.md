@@ -4,8 +4,8 @@
 |---|---|---|---|
 | mGBA (commit `9660a668f2093cb4aba5983f52bebf8878dc5b8b`) | GBA emulation core, linked into the app | MPL-2.0 | https://github.com/mgba-emu/mgba (submodule `third_party/mgba`, unmodified apart from the build-time zlib `zconf.h` handling done by the 3DS CMake build) |
 | libctru / devkitPro | 3DS homebrew library and toolchain | zlib / various (see devkitPro) | https://devkitpro.org |
-| makerom | builds the `.cia` (shipped in `build.zip`, not in this repository) | MIT | https://github.com/3DSGuy/Project_CTR |
-| bannertool | builds the banner / icon (shipped in `build.zip`, not in this repository) | MIT | https://github.com/Steveice10/bannertool |
+| makerom | builds the `.cia` (shipped in `GoldenSun3DS_Patcher.zip`, not in this repository) | MIT | https://github.com/3DSGuy/Project_CTR |
+| bannertool | builds the banner / icon (shipped in `GoldenSun3DS_Patcher.zip`, not in this repository) | MIT | https://github.com/Steveice10/bannertool |
 | Ubuntu Font Family | bitmap fonts rasterised into `src/font_data.c` | Ubuntu Font Licence 1.0, (c) Canonical Ltd | https://design.ubuntu.com/font |
 
 ## mGBA (MPL-2.0)
