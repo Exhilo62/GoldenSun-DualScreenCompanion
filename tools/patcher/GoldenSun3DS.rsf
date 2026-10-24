@@ -44,6 +44,12 @@ AccessControlInfo:
   CpuSpeed                      : 804MHz
   EnableL2Cache                 : true
   CanAccessCore2                : true
+  # Memory the process may map: the DSP / AXI WRAM registers (libctru's ndsp audio writes there; without this a .cia faults with a data abort at
+  # 0x1FF57FFE as soon as sound starts) and VRAM.
+  IORegisterMapping:
+   - 1ff00000-1ff7ffff
+  MemoryMapping:
+   - 1f000000-1f5fffff:r
   SystemCallAccess:
     ControlMemory: 1
     QueryMemory: 2

@@ -31,6 +31,7 @@ Goal of this release: find obvious problems. Everything below is new in a first 
 - Equip best button redrawn with the larger font so letters are not cut off.
 
 **Stability**
-- If the audio start-up crashes a console (seen once on a New 3DS: data abort in `ndspInit`), the next launch skips sound instead of crashing again; delete `audio_crash.flag` in `sdmc:/3ds/GoldenSun3DS/` to retry.
+- Fixed a crash when starting a game from the .cia (data abort at `0x1FF57FFE`, as soon as sound started): the .cia now declares the DSP memory range the audio library needs. The SD-card (.3dsx) version was never affected.
+- As a safety net, if the audio start-up ever crashes a console, the next launch skips sound instead of crashing again; delete `audio_crash.flag` in `sdmc:/3ds/GoldenSun3DS/` to retry.
 
 **Known issues**: see the README ("Known limitations in this beta").

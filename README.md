@@ -33,7 +33,7 @@ Full details: [docs/FEATURES.md](docs/FEATURES.md).
 - **Speed depends on the console.** Old 3DS cannot reach full speed. Fast forward cannot go faster than your console can emulate; it is capped to keep the picture smooth. The Menu footer shows the real numbers (`e` = ms per emulated frame, `c` = CPU benchmark: about 30 means the New 3DS clock is active, about 90 means it is not).
 - **Golden Sun only** for: equip preview / Equip best, Djinn sets, the live map. The Lost Age has a partial info UI (see [docs/LOST_AGE.md](docs/LOST_AGE.md)).
 - **Lightly tested**: Repeat round, Djinn set Save / Apply / All Set, Equip best on real hardware. Android dual-screen devices have not been tested (only Azahar on Windows).
-- **Sound on some consoles**: on at least one New 3DS the audio start-up (libctru `ndspInit`) crashed the app with a data abort. The app now drops a flag file `sdmc:/3ds/GoldenSun3DS/audio_crash.flag` before starting audio and removes it afterwards; if a start-up crashes, the next launch runs **without sound** instead of crashing again (a "Sound off" message shows). Delete that file to try sound again. If you see the crash, please report it with your CFW version and whether `sdmc:/3ds/dspfirm.cdc` exists.
+- **Sound safety net**: if audio start-up ever crashes a console, the next launch runs without sound instead of crashing again (a "Sound off" message shows); delete `sdmc:/3ds/GoldenSun3DS/audio_crash.flag` to try sound again. (The first .cia build crashed at game start on a New 3DS because the .cia did not declare the DSP memory range; fixed in the current build.)
 - Autosave is on by default and resumes where you quit. Turn it off in **Menu** if you would rather start fresh.
 
 ## Build from source
