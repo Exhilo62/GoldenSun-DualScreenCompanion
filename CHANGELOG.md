@@ -68,3 +68,4 @@ Goal of this release: find obvious problems. Everything below is new in a first 
 - Renamed to **Golden Sun - Dual Screen Companion** (working title, as more platforms are planned). The HOME Menu title, patcher windows, guides and README use the new name; file, folder and save locations (`GoldenSun3DS`) are unchanged so existing saves keep working.
 - The patcher now names its output `Golden Sun - Dual Screen.cia` (and `.3ds`) automatically: that is the Save-as default, and picking just a folder works too.
 - The pick screen now says "Dual Screen Companion" under the logo (the label box widens to fit it).
+- The character screen's "Game" button is now labelled "Status" (it opens the game's own Status page).

@@ -985,7 +985,7 @@ static void charView(const GsState* st, const UiView* v) {
 	gPill(12, CONTENT_Y + 5, 190, 17, C_PANEL_T, C_PANEL_B, C_GOLD);
 	gTextCentered(107, CONTENT_Y + 9, line, 1, C_GOLD);
 	gPanel(210, CONTENT_Y + 5, 48, 17, C_PANEL_T, C_PANEL_B, C_GOLD_DIM);
-	gTextCentered(234, CONTENT_Y + 9, "Game", 1, C_TEXT);
+	gTextCentered(234, CONTENT_Y + 9, "Status", 1, C_TEXT);
 	gPanel(262, CONTENT_Y + 5, 46, 17, C_PANEL_T, C_PANEL_B, C_GOLD);
 	gTextCentered(285, CONTENT_Y + 9, "Back", 1, C_TEXT);
 	gSprite(12, CONTENT_Y + 28, artPortrait(m->name));
