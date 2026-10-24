@@ -73,33 +73,32 @@ static void present(void) {
 }
 
 // Draws one top and one bottom frame into both framebuffer halves (the 3DS swaps buffers, so draw twice).
-static void paintGameCard(int x, int y, int w, int h, bool sel, bool last, bool installed, int game, const char* who) {
+static void paintGameCard(int x, int y, int w, int h, bool sel, bool last, bool installed, int game) {
 	const Sprite* face = artCardFace(game);
 	const Sprite* logo = artCardLogo(game);
 	int fx = x + 7, fy = y + (h - face->h) / 2;
-	int lx = x + 76 + (214 - logo->w) / 2, ly = y + 5;
+	int lx = x + 196 - logo->w / 2, ly = y + 3;   // banner right of the portrait, clear of the LAST PLAYED tag below it
 	if (!installed) {   // not installed: dim, no highlight, and a hint on how to add it
 		gPanel(x, y, w, h, RGB(16, 24, 48), RGB(8, 12, 28), RGB(70, 76, 100));
 		gSpriteTint(fx, fy, face, RGB(10, 16, 36), 190);
 		gSpriteTint(lx, ly, logo, RGB(10, 16, 36), 190);
-		gText(x + 76, y + 60, "Not installed - add its ROM with the patcher", 0, RGB(120, 128, 160));
+		gText(x + 76, y + 62, "Not installed - add its ROM with the patcher", 0, RGB(120, 128, 160));
 		return;
 	}
 	gPanel(x, y, w, h, sel ? L_ACTIVE_T : L_PANEL_T, sel ? L_ACTIVE_B : L_PANEL_B, sel ? L_GOLD : L_GOLD_DIM);
 	gSprite(fx, fy, face);
 	gSprite(lx, ly, logo);
-	gText(x + 76, y + 60, who, 0, sel ? L_GOLD : L_DIM);
 	if (last) {
-		gPill(x + w - 74, y + 57, 68, 14, L_CARD_T, L_CARD_B, L_GOLD_DIM);
-		gTextCentered(x + w - 40, y + 60, "LAST PLAYED", 0, L_GOLD);
+		gPill(x + w - 74, y + 58, 68, 14, L_CARD_T, L_CARD_B, L_GOLD_DIM);
+		gTextCentered(x + w - 40, y + 61, "LAST PLAYED", 0, L_GOLD);
 	}
 }
 
-static void drawBottom(int sel, int last, const bool installed[2], const char* who[2]) {
+static void drawBottom(int sel, int last, const bool installed[2]) {
 	uint16_t* fb = (uint16_t*) gfxGetFramebuffer(GFX_BOTTOM, GFX_LEFT, NULL, NULL);
 	beginScene(fb);
 	gTextCentered(160, 10, "Choose your adventure", 1, L_TEXT);
-	for (int i = 0; i < 2; ++i) paintGameCard(10, 30 + i * 84, 300, 74, sel == i, last == i, installed[i], i, who[i]);
+	for (int i = 0; i < 2; ++i) paintGameCard(10, 30 + i * 84, 300, 74, sel == i, last == i, installed[i], i);
 	gPanel(10, 200, 300, 32, L_CARD_T, L_CARD_B, L_GOLD_DIM);
 	gTextCentered(160, 207, "Tap a game, or Up/Down and A", 1, L_TEXT);
 	gTextCentered(160, 220, "START: exit", 0, L_DIM);
@@ -109,7 +108,6 @@ int launcherPick(int last, const bool installed[2]) {
 	gSetBackgroundImage(artBackground());
 	const GsGameInfo* g1 = gsGameInfo(GS_GAME_1);
 	const GsGameInfo* g2 = gsGameInfo(GS_GAME_2);
-	const char* who[2] = {"Isaac, Garet, Ivan and Mia", "Felix, Jenna, Sheba and Piers"};
 	int sel = (last == 1 && installed[1]) || !installed[0] ? 1 : 0, pick = -1, painted = 0;
 	bool redraw = true;
 	while (aptMainLoop() && pick < 0) {
@@ -130,7 +128,7 @@ int launcherPick(int last, const bool installed[2]) {
 		if (painted > 0) {
 			--painted;
 			drawTop(sel == 0 ? g1->name : g2->name);
-			drawBottom(sel, last, installed, who);
+			drawBottom(sel, last, installed);
 		}
 		present();
 	}
