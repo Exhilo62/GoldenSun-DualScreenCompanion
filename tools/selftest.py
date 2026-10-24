@@ -87,6 +87,10 @@ def main():
     check('coins 999999', 'coins=999999' in o)
     check('menu flag clear in the field', 'menu=0' in o)
     check('Garet is cursed, Isaac is not', re.search(r'member 1 Garet.*cursed=1', o) is not None and re.search(r'member 0 Isaac.*cursed=0', o) is not None, o)
+    print('== state reader: Garet just joined (order array still all zeros, mask 0x03)')
+    o = probe('garet_test.state')
+    check('two members', 'party=2' in o, o[:120])
+    check('second member is Garet, not a second Isaac', 'member 1 Garet lv1' in o, o)
 
     print('== state reader: menus')
     o = probe('menu_djinn.state')

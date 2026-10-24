@@ -123,6 +123,7 @@ void uiInit(UiView* v) {
 	v->mapZoom = 1;
 	v->speedMul = 3;
 	v->autoSave = true;   // resume where you quit (settings.bin overrides)
+	// hideMenus (Menus below) and muteSlow (Mute if slow) start Off: both are options the player opts into
 }
 
 bool uiShowsMap(const UiView* v) {

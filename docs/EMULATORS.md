@@ -30,9 +30,9 @@ In Azahar, open the settings (PC: **Emulation > Configure...**, Android: the set
 The 3DS audio library the app uses insists on a file called `dspfirm.cdc`, which normally has to be dumped from a real console. In an emulator the app
 solves this itself: if the file is missing it writes a placeholder (all zeros, no Nintendo data) into the emulator's virtual SD card (`sdmc/3ds/dspfirm.cdc`)
 and starts the audio. Azahar's built-in audio never reads the contents, so **you do not need a 3DS to get sound**. (On a real console this is never done.)
-- The Menu tab footer shows the speed, for example `60 FPS`. It adds **`(no audio)`** if the audio could not start and **`(muted: slow)`** if **Mute if slow**
-  is silencing the sound because the game runs below about 54 fps. If you see `(muted: slow)`, raise the CPU clock (step 2) or accept the silence.
-- If you turn **Mute if slow** off while the game runs slowly, you will hear the slow, choppy sound.
+- The Menu tab footer shows the speed, for example `60 FPS`. It adds **`(no audio)`** if the audio could not start and **`(muted: slow)`** if you turned **Mute if slow** On
+  and it is silencing the sound because the game runs below about 54 fps. If you see `(muted: slow)`, raise the CPU clock (step 2) or accept the silence.
+- **Mute if slow** is Off by default, so a slow game plays its slow, choppy sound. Turn it On in the Menu tab if you would rather have silence than choppy audio; the footer then shows `(muted: slow)` while it is silencing.
 
 ### 4. Where things are
 - Saves, settings, save states and the map are written to the emulator's virtual SD card, folder `sdmc/3ds/GoldenSun3DS/` (PC: Azahar's user directory,

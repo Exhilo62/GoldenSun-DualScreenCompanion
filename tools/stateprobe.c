@@ -37,6 +37,11 @@ int main(int argc, char** argv) {
 	printf("mode=%s map=%d menu=%d party=%d coins=%u hand=%d,%d,%d enemies=%d\n", st.mode == GS_MODE_BATTLE ? "battle" : "field", st.areaGroup,
 		st.menuOpen, st.partySize, (unsigned) st.coins, st.handFound, st.handX, st.handY, st.enemyCount);
 	if (st.mode == GS_MODE_BATTLE) printf("battle sel=%d phase=%d top=%d cmd=%d target=%d ally=%d depth=%d text=%s enemies=%d\n", st.battleSel, (int) st.battlePhase, st.battleTop, st.battleCmd, st.battleTarget, st.battleTargetAlly, st.battleDepth, st.battleText, st.enemyCount);
+	if (getenv("GS_DUMP")) {
+		printf("order:"); for (int i = 0; i < 8; ++i) printf(" %02x", core->busRead8(core, 0x0200001Cu + i));
+		printf("  mask: %02x\n", core->busRead8(core, 0x02000040u));
+		for (int r = 0; r < 8; ++r) { printf("rec %d:", r); for (int i = 0; i < 16; ++i) printf(" %02x", core->busRead8(core, 0x02000500u + r * 0x14Cu + i)); printf("\n"); }
+	}
 	for (int i = 0; i < st.partySize; ++i) {
 		printf("member %d %s lv%d hp %d/%d pp %d/%d cursed=%d\n", i, st.party[i].name, st.party[i].level, st.party[i].hp, st.party[i].maxHp, st.party[i].pp,
 			st.party[i].maxPp, st.party[i].cursed);

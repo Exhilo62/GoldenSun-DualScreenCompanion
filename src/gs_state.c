@@ -150,9 +150,19 @@ void gsReadState(GsState* out, GsMemRead rd, void* ctx) {
 		order[n++] = (int) r;
 	}
 	if (n > size) n = size;   // entries after the last member can be stale (a replaced member leaves its old index behind): the mask gives the true size
+	if (n == size && ram->partyMask) {   // a fresh join can leave the list unfilled (all zeros): it must name distinct members that the mask contains
+		uint32_t mask = rd(ctx, ram->partyMask, 1), seen = 0;
+		for (int i = 0; i < n; ++i) {
+			if (!(mask >> order[i] & 1) || (seen >> order[i] & 1)) { n = -1; break; }
+			seen |= 1u << order[i];
+		}
+	}
 	if (n != size) {
 		n = size;
-		for (int i = 0; i < GS_PARTY_MAX; ++i) order[i] = i;
+		uint32_t mask = ram->partyMask ? rd(ctx, ram->partyMask, 1) : 0;
+		int k = 0;
+		for (int r = 0; r < GS_CHAR_COUNT && k < GS_PARTY_MAX; ++r) if (mask >> r & 1) order[k++] = r;   // members in join order
+		if (!mask || k != size) for (int i = 0; i < GS_PARTY_MAX; ++i) order[i] = i;
 	}
 	for (int r = 0; r < GS_CHAR_COUNT; ++r) slotOfRec[r] = -1;
 	for (int i = 0; i < n; ++i) slotOfRec[order[i]] = i;
