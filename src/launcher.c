@@ -53,8 +53,8 @@ static void titleBanner(int y, const char* sub) {
 	gPill(100, y + logo->h + 18, 120, 16, L_PANEL_T, L_PANEL_B, L_GOLD);
 	gTextCentered(160, y + logo->h + 22, "3DS Companion", 1, L_TEXT);
 	if (sub) gTextCentered(160, y + logo->h + 40, sub, 0, L_DIM);
-	gTextCentered(160, 218, "v" APP_VERSION " " APP_STAGE, 1, L_DIM);   // version on the pick screen
-	gTextCentered(160, 230, "build " __DATE__ " " __TIME__, 0, L_DIM);   // tells two installs of the same version apart
+	gTextCentered(160, 208, "v" APP_VERSION " " APP_STAGE, 1, L_DIM);   // version on the pick screen
+	gTextCentered(160, 222, "build " __DATE__ " " __TIME__, 1, L_DIM);   // tells two installs of the same version apart
 }
 
 static void drawTop(const char* sub) {
