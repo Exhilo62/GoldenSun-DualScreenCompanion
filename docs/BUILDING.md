@@ -31,7 +31,7 @@ make        # -> build/app/GoldenSun3DS.3dsx (+ .smdh icon, .elf)
 ```
 powershell -ExecutionPolicy Bypass -File tools/make_dist.ps1
 ```
-Needs `makerom.exe` and `bannertool.exe` in `tools/patcher/bin/` (not stored in git; get them from [Project_CTR](https://github.com/3DSGuy/Project_CTR/releases) and [bannertool](https://github.com/Steveice10/bannertool/releases)). Output: `dist/GoldenSun3DS-Setup/` and `dist/releases/v<version>-<stage>/GoldenSun3DS_Patcher.zip`. The version lives in `src/version.h`.
+Needs `makerom.exe` and `bannertool.exe` in `tools/patcher/bin/` (not stored in git; get them from [Project_CTR](https://github.com/3DSGuy/Project_CTR/releases) and [bannertool](https://github.com/Steveice10/bannertool/releases)). Output: `dist/GoldenSun3DS-Setup/` and `dist/releases/v<version>-<stage>/GoldenSun3DS_Patcher_v<version>-<stage>.zip`. The version lives in `src/version.h`.
 
 ## Artwork scripts
 `tools/genlogo.ps1` (launcher logo + HOME banner from `assets/reference/logo.png`), `tools/genicon.ps1` (icon from `assets/reference/icon_source.png`), `tools/genart.ps1` (tab icons, portraits), `tools/genicons.py` (item/Djinn/Psynergy icons), `tools/genfont.ps1` (needs `UBUNTU_FONT_DIR`).

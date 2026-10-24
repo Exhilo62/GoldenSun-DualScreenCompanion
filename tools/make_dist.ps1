@@ -1,5 +1,5 @@
 # Builds dist\GoldenSun3DS-Setup\ : the patcher, its launcher and everything it needs for both outputs (SD folder and .cia),
-# then one GoldenSun3DS_Patcher.zip per version: dist\releases\v<version>-<stage>\GoldenSun3DS_Patcher.zip (attach it to the GitHub release). It contains no ROMs.
+# then one zip per version: dist\releases\v<version>-<stage>\GoldenSun3DS_Patcher_v<version>-<stage>.zip (attach it to the GitHub release). It contains no ROMs.
 # bin\ holds makerom and bannertool (3DSGuy / Steveice10, MIT licensed) for the CIA output. The version comes from src\version.h.
 $root = Resolve-Path "$PSScriptRoot\.."
 $out = "$root\dist\GoldenSun3DS-Setup"
@@ -29,7 +29,7 @@ Write-Output "wrote $out"
 
 $rel = Join-Path (Join-Path "$root\dist" "releases") "v$ver-$stage"
 New-Item -ItemType Directory -Force $rel | Out-Null
-$zip = Join-Path $rel "GoldenSun3DS_Patcher.zip"
+$zip = Join-Path $rel "GoldenSun3DS_Patcher_v$ver-$stage.zip"
 Remove-Item $zip -ErrorAction SilentlyContinue
 Compress-Archive -Path $out -DestinationPath $zip -Force
 Write-Output "wrote $zip"
