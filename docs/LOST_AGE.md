@@ -93,3 +93,18 @@ Not found / not trusted yet:
 - **Item ids above 460:** text id `0x25F + 461` is `???` and the ones after it are the placeholders "Venus/Mercury/Mars Djinni", not real bag items, so the name table stops at 460.
 - **"Last acted" marker: not found.** A RAM diff over a full round (`bp_fight.state`, A pressed every 48 frames, a dump every 6 frames) gave 122 noisy candidates; the only monotonic one is `0x02006A9D` (1 to 4 across the round), which looks like the command-entry slot, not the acting hero. The feature is only a brief portrait highlight, so the Lost Age skips it.
 - **Memory:** with `perflog.txt` the log also prints the free application heap and free linear memory (Azahar: about 31.7 MB linear free with the Lost Age loaded); check the same line on a real console.
+
+## Feature parity with Golden Sun (audit, Oct 24, checked in Azahar with `-Game 2` and the saved Lost Age states)
+| Feature | The Lost Age |
+|---|---|
+| Party cards (HP/PP/stats, curse badge, portraits) | works |
+| Character screen (EXP to next level, Djinn Pow/Res) | works; **class name now shown** (new table `gs_classes_tla.inc`, ids from text groups 11 / 12) |
+| Psynergy list, tap to cast ("Use Cure on whom?") | works |
+| Djinn tab, tap Set / Standby, Djinn sets (All Set, All Standby, 3 slots) | works (sets overlay opens; Save / Apply use the same column-walking as single Djinn) |
+| Items list, icons, long-press description | works |
+| Equip preview, "Equip best" | button runs and leaves the menu clean; a bag with better gear still needs a real-console check |
+| Map tab | **now drawn from the ROM** (Yallam, Anemos Sanctum checked), see MAP_DATA.md; the world map still uses the stitched map |
+| Battle panel (phases, enemy HP/ATK, turn order, descriptions) | works (earlier verification) |
+| Repeat round, Message log, Bestiary | same code as Golden Sun; not exercised in a Lost Age fight in this audit |
+| Save slots, autosave, rewind, top-screen modes, "Menus below", "Mute if slow" | shared code, unaffected |
+| Password keyboard | Lost Age only |

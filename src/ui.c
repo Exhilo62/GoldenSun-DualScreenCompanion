@@ -979,7 +979,7 @@ static void charView(const GsState* st, const UiView* v) {
 	const GsMember* m = &st->party[who];
 	gPanel(4, CONTENT_Y, 312, CONTENT_H, C_CARD_T, C_CARD_B, C_GOLD);
 	char line[64];
-	const char* cls = gsRam()->namesKnown ? gsClassName(m->classId) : "";
+	const char* cls = gsClassNameFor(gsRam() == &gsRamTla ? 2 : 1, m->classId);
 	snprintf(line, sizeof(line), cls[0] ? "%s  %s  Lv %u" : "%s  Lv %u%.0s", m->name, cls[0] ? cls : "", (unsigned) m->level, "");
 	if (!cls[0]) snprintf(line, sizeof(line), "%s  Lv %u", m->name, (unsigned) m->level);
 	gPill(12, CONTENT_Y + 5, 190, 17, C_PANEL_T, C_PANEL_B, C_GOLD);

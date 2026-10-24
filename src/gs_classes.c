@@ -51,6 +51,13 @@ static const char* const names[100] = {
 	[92] = "Master",
 };
 
+#include "gs_classes_tla.inc"
+
 const char* gsClassName(unsigned id) {
 	return id < 100 && names[id] ? names[id] : "";
+}
+
+const char* gsClassNameFor(int game, unsigned id) {
+	if (game != 2) return gsClassName(id);
+	return id < sizeof(namesTla) / sizeof(namesTla[0]) && namesTla[id] ? namesTla[id] : "";
 }
