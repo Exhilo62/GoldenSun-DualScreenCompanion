@@ -19,7 +19,7 @@ $f2 = New-Object System.Drawing.Font 'Segoe UI', 15, ([System.Drawing.FontStyle]
 $sf = New-Object System.Drawing.StringFormat; $sf.Alignment = 'Center'; $sf.FormatFlags = 'NoWrap'
 $g.DrawString('Golden Sun', $f1, [System.Drawing.Brushes]::Black, (New-Object System.Drawing.RectangleF 2, 22, 256, 50), $sf)
 $g.DrawString('Golden Sun', $f1, (New-Object System.Drawing.SolidBrush $gold), (New-Object System.Drawing.RectangleF 0, 20, 256, 50), $sf)
-$g.DrawString('3DS Companion', $f2, [System.Drawing.Brushes]::White, (New-Object System.Drawing.RectangleF 0, 78, 256, 24), $sf)
+$g.DrawString('Dual Screen Companion', $f2, [System.Drawing.Brushes]::White, (New-Object System.Drawing.RectangleF 0, 78, 256, 24), $sf)
 $g.Dispose(); $bmp.Save("$root\assets\banner.png")
 # half a second of silence (16 kHz, 16-bit mono) for the banner jingle
 $n = 8000; $data = New-Object byte[] ($n * 2)

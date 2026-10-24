@@ -50,8 +50,10 @@ static void titleBanner(int y, const char* sub) {
 	const Sprite* logo = artLogo();
 	gPanel(50, y, 220, logo->h + 62, L_CARD_T, L_CARD_B, L_GOLD);
 	gSprite(160 - logo->w / 2, y + 10, logo);
-	gPill(100, y + logo->h + 18, 120, 16, L_PANEL_T, L_PANEL_B, L_GOLD);
-	gTextCentered(160, y + logo->h + 22, "3DS Companion", 1, L_TEXT);
+	const char* tag = "Dual Screen Companion";
+	int pw = gTextW(tag, 1) + 30;
+	gPill(160 - pw / 2, y + logo->h + 18, pw, 16, L_PANEL_T, L_PANEL_B, L_GOLD);
+	gTextCentered(160, y + logo->h + 22, tag, 1, L_TEXT);
 	if (sub) gTextCentered(160, y + logo->h + 40, sub, 0, L_DIM);
 	gTextCentered(160, 208, "v" APP_VERSION " " APP_STAGE, 1, L_DIM);   // version on the pick screen
 	gTextCentered(160, 222, "build " __DATE__ " " __TIME__, 1, L_DIM);   // tells two installs of the same version apart
