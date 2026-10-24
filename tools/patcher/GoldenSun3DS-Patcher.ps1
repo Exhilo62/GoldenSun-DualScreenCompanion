@@ -244,7 +244,7 @@ function New-Group($x, $y, $w, $h) {
     $form.Controls.Add($p); return $p
 }
 
-[void](New-Label 'GOLDEN SUN 3DS' 20 14 580 36 $gold 20 $true)
+[void](New-Label 'GOLDEN SUN 3DS' 20 14 380 36 $gold 20 $true)   # header controls must not overlap: transparent labels paint over what is below them
 # Version (version.txt sits next to this script in the release zip; a source checkout reads src\version.h) and the patch notes.
 $verText = 'dev build'
 $vf = Find-File @("$here\version.txt")
@@ -256,9 +256,9 @@ else {
         $verText = ([regex]::Match($h, 'APP_VERSION "([^"]+)"').Groups[1].Value + ' ' + [regex]::Match($h, 'APP_STAGE "([^"]+)"').Groups[1].Value).Trim()
     }
 }
-$lblVer = New-Label ("Version " + $verText) 300 56 226 22 $gold 10 $true
+$lblVer = New-Label ("Version " + $verText) 380 54 148 22 $gold 10 $true
 $lblVer.TextAlign = [System.Drawing.ContentAlignment]::MiddleRight
-$btnNotes = New-Button 'Patch notes' 416 20 110 30
+$btnNotes = New-Button 'Patch notes' 412 14 114 30
 # Round badge in the top right corner (badge.png sits next to this script in the release zip, or in assets\ in a source checkout).
 $badgeFile = Find-Asset 'badge.png'
 if ($badgeFile) {
