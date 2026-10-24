@@ -307,7 +307,7 @@ $rCia = New-Radio 'One installable .cia with the ROMs inside (HOME Menu)  - reco
 
 [void](New-Label '3.  Where to put it' 22 276 300 24 $text 11 $true)
 $chk3ds = New-Object System.Windows.Forms.CheckBox
-$chk3ds.Text = 'Also make a .3ds file for emulators'; $chk3ds.Location = New-Object System.Drawing.Point(330, 277); $chk3ds.Size = New-Object System.Drawing.Size(290, 26)
+$chk3ds.Text = 'Also make a .3ds file for emulators'; $chk3ds.Location = New-Object System.Drawing.Point(330, 274); $chk3ds.Size = New-Object System.Drawing.Size(290, 24)   # ends above the Browse button (y 302) so it cannot cover its border
 $chk3ds.ForeColor = $text; $chk3ds.BackColor = $navy
 $form.Controls.Add($chk3ds)
 $boxOut = New-Box 40 304 440
