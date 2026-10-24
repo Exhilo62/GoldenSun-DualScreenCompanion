@@ -42,4 +42,6 @@ Goal of this release: find obvious problems. Everything below is new in a first 
 
 - All SD-card writes (map, autosave, settings, Djinn sets, bestiary) now run on a separate low-priority thread, so a slow card can no longer freeze the game (a 207 ms hitch after a battle was traced to a bestiary save on the main thread). Automatic frame skip now stays on for 30 s of full speed before it tests full drawing again, which removed periodic dips.
 
+- Fixed the party list showing Ivan instead of Jenna after Jenna joins (stale byte in the game's party-order list made the reader fall back to the default order).
+
 **Known issues**: see the README ("Known limitations in this beta").

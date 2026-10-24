@@ -149,6 +149,7 @@ void gsReadState(GsState* out, GsMemRead rd, void* ctx) {
 		if (r >= GS_CHAR_COUNT) break;
 		order[n++] = (int) r;
 	}
+	if (n > size) n = size;   // entries after the last member can be stale (a replaced member leaves its old index behind): the mask gives the true size
 	if (n != size) {
 		n = size;
 		for (int i = 0; i < GS_PARTY_MAX; ++i) order[i] = i;
