@@ -167,7 +167,12 @@ void mapUpdate(const uint16_t* video, size_t stride, const GsState* st) {
 					y >= st->sprites[k].y - 2 && y < st->sprites[k].y + st->sprites[k].h + 2;
 			}
 			if (onSprite && s->px[cy * MAP_W + cx]) continue;
-			uint16_t c = video[y * stride + x];
+			// Average the 2x2 block this half-resolution cell covers (point sampling made dithered grass and text look like noise).
+			const uint16_t* q = video + y * stride + x;
+			uint16_t q0 = q[0], q1 = q[1], q2 = q[stride], q3 = q[stride + 1];
+			unsigned rr = ((q0 >> 11) + (q1 >> 11) + (q2 >> 11) + (q3 >> 11) + 2) >> 2, gg = (((q0 >> 5) & 63) + ((q1 >> 5) & 63) + ((q2 >> 5) & 63) + ((q3 >> 5) & 63) + 2) >> 2,
+				bb = ((q0 & 31) + (q1 & 31) + (q2 & 31) + (q3 & 31) + 2) >> 2;
+			uint16_t c = (uint16_t) (rr << 11 | gg << 5 | bb);
 			s->px[cy * MAP_W + cx] = c ? c : 1;
 			if (cx < s->minX) s->minX = cx;
 			if (cx > s->maxX) s->maxX = cx;

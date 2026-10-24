@@ -69,3 +69,4 @@ Goal of this release: find obvious problems. Everything below is new in a first 
 - The patcher now names its output `Golden Sun - Dual Screen.cia` (and `.3ds`) automatically: that is the Save-as default, and picking just a folder works too.
 - The pick screen now says "Dual Screen Companion" under the logo (the label box widens to fit it).
 - The character screen's "Game" button is now labelled "Status" (it opens the game's own Status page).
+- Less noise: the top screen's Fill mode now blends only the seam pixels when stretching (text keeps even stroke widths instead of ragged 1-2 pixel jitter), and the map is built from 2x2 averages of the game picture instead of single pixels, so dithered grass and text look smoother (areas already in `maps.bin` keep their old look until you walk them again, or use Clear map).

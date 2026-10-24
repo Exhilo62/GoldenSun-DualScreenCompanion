@@ -150,8 +150,9 @@ static uint32_t mapKeys(u32 held) {
 	return k;
 }
 
-// 240x160 RGB565 (row-major) -> top screen (400x240, column-major and flipped): 1x centred, or FILL stretch (nearest, 5/3 wide x 3/2 tall).
-// The source is read in blocks of 8 columns so every cache line is used once; FILL expands each block column into one or two destination columns.
+// 240x160 RGB565 (row-major) -> top screen (400x240, column-major and flipped): 1x centred, or FILL stretch (5/3 wide x 3/2 tall, seams blended).
+// The source is read in blocks of 8 columns so every cache line is used once.
+#define AVG565(a, b) ((uint16_t) ((((a) & 0xF7DE) >> 1) + (((b) & 0xF7DE) >> 1) + ((a) & (b) & 0x0821)))
 #define BLK 8
 // Draws the top screen into the private buffer fb (400x240, column-major); presentFrame() copies it to the real framebuffer.
 static void blitTop(uint16_t* fb, const uint16_t* src, size_t stride, int mode) {
@@ -172,26 +173,32 @@ static void blitTop(uint16_t* fb, const uint16_t* src, size_t stride, int mode) 
 		return;
 	}
 	if (mode == TOP_FILL) {
+		// "Sharp bilinear" stretch: 3 source columns -> 5 (s0, mix, s1, mix, s2) and 2 source rows -> 3 (a, mix, b). Only the seam pixels are
+		// blended, so text keeps even stroke widths instead of the 1-2-2 pixel jitter that plain nearest-neighbour stretching gives.
 		clearedMode = -1;
 		uint16_t col[BLK][160];
-		static uint16_t exp[240];   // one expanded destination column (already flipped)
-		int dx = 0;                 // next destination column
+		static uint16_t E[240][240];   // every source column already stretched to 240 rows (flipped)
 		for (int x0 = 0; x0 < 240; x0 += BLK) {
 			for (int y = 0; y < 160; ++y) {
 				const uint16_t* row = src + y * stride + x0;
 				for (int k = 0; k < BLK; ++k) col[k][y] = row[k];
 			}
 			for (int k = 0; k < BLK; ++k) {
-				int sx = x0 + k;
-				for (int j = 0; j < 80; ++j) {   // 2 source rows -> 3 destination rows
+				uint16_t* e = E[x0 + k];
+				for (int j = 0; j < 80; ++j) {
 					uint16_t a = col[k][2 * j], b = col[k][2 * j + 1];
-					exp[239 - 3 * j] = a; exp[238 - 3 * j] = a; exp[237 - 3 * j] = b;
-				}
-				while (dx < 400 && dx * 240 / 400 == sx) {
-					memcpy(fb + dx * 240, exp, sizeof(exp));
-					++dx;
+					e[239 - 3 * j] = a; e[238 - 3 * j] = AVG565(a, b); e[237 - 3 * j] = b;
 				}
 			}
+		}
+		for (int g = 0; g < 80; ++g) {
+			const uint16_t* s0 = E[3 * g]; const uint16_t* s1 = E[3 * g + 1]; const uint16_t* s2 = E[3 * g + 2];
+			uint16_t* d = fb + 5 * g * 240;
+			memcpy(d, s0, 480);
+			for (int i = 0; i < 240; ++i) d[240 + i] = AVG565(s0[i], s1[i]);
+			memcpy(d + 480, s1, 480);
+			for (int i = 0; i < 240; ++i) d[720 + i] = AVG565(s1[i], s2[i]);
+			memcpy(d + 960, s2, 480);
 		}
 		return;
 	}
