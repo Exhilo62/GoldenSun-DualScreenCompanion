@@ -1203,8 +1203,10 @@ int main(void) {
 		if (++accFrames >= 60) {   // ticks run at 268.1 MHz: 268123 ticks per millisecond
 			u64 wall = t5 - wallStart;
 			const double tpm = 268123.0 * accFrames;
-			snprintf(ui.perf, sizeof(ui.perf), "%.0ffps%s game%.0f e%.1f d%d t%.1f c%u%s", accFrames * 268123000.0 / (double) (wall ? wall : 1), worker ? " 2c" : "",
+			char perfFull[96];   // the detailed line goes to perflog.txt (when it exists); the Menu footer shows only the frame rate
+			snprintf(perfFull, sizeof(perfFull), "%.0ffps%s game%.0f e%.1f d%d t%.1f c%u%s", accFrames * 268123000.0 / (double) (wall ? wall : 1), worker ? " 2c" : "",
 				accGame * 268123000.0 / (double) (wall ? wall : 1), (double) acc[1] / tpm, droppedDraws, (double) acc[3] / tpm, cpuMs, autoSkip ? " sk" : "");
+			snprintf(ui.perf, sizeof(ui.perf), "%.0f FPS", accGame * 268123000.0 / (double) (wall ? wall : 1));
 			static int perfReports;
 			if (++perfReports % 10 == 0) {   // only when the player created perflog.txt: one line per ten seconds for real-console timing reports
 				FILE* pl = fopen(PERFLOG_PATH, "r");

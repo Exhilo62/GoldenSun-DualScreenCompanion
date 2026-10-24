@@ -1282,6 +1282,35 @@ static void waitingPanel(void) {
 
 static const char* footerNote;   // set by uiDraw: replaces the footer's second line (the timing readout on the Menu tab)
 
+// Gold octagonal coin like the game's menu icon: dark outline, a bevelled rim lit from the top left, a flat face with a vertical gradient and a
+// glossy diagonal highlight.
+static void drawCoin(int cx, int cy, int r) {
+	for (int j = -r; j <= r; ++j) {
+		for (int i = -r; i <= r; ++i) {
+			int ax = i < 0 ? -i : i, ay = j < 0 ? -j : j;
+			int m = ax > ay ? ax : ay;
+			int diag = ((ax + ay) * 181) >> 8;   // (|x| + |y|) / sqrt 2
+			int d = m > diag ? m : diag;
+			if (d > r) continue;
+			int lit = -(i + j);   // positive towards the top left
+			uint16_t c;
+			if (d >= r) c = RGB(112, 66, 10);                                    // outline
+			else if (d >= r - 3) {                                               // rim
+				int t = 128 + lit * 6;
+				if (t < 0) t = 0; else if (t > 255) t = 255;
+				c = gMix(RGB(196, 124, 16), RGB(255, 206, 72), t);
+				if (d == r - 3) c = gMix(c, RGB(150, 92, 10), 90);               // inner bevel line
+			} else {                                                             // face
+				int t = (j + r) * 255 / (2 * r);
+				c = gMix(RGB(255, 222, 78), RGB(238, 168, 28), t);
+				int band = i + j;                                                // diagonal gloss, upper left
+				if (band >= -r + 1 && band <= -r / 2 - 1 && d < r - 4) c = gMix(c, RGB(255, 246, 170), band <= -r / 2 - 3 ? 200 : 120);
+			}
+			gPx(cx + i, cy + j, c);
+		}
+	}
+}
+
 static void footer(const GsState* st) {
 	if (!gameStarted(st)) {
 		gPanel(4, FOOT_Y, 312, FOOT_H, C_CARD_T, C_CARD_B, C_GOLD);
@@ -1308,12 +1337,7 @@ static void footer(const GsState* st) {
 	else snprintf(id, sizeof(id), "Map %03X   Party Lv %u", (unsigned) st->areaGroup, (unsigned) st->party[0].level);
 	gText(42, FOOT_Y + 17, footerNote ? footerNote : id, 0, footerNote ? C_GOLD : C_DIM);
 	gPanel(212, FOOT_Y, 104, FOOT_H, C_CARD_T, C_CARD_B, C_GOLD);
-	for (int j = -6; j <= 6; ++j) {
-		for (int i = -6; i <= 6; ++i) {
-			int d = i * i + j * j;
-			if (d < 40) gPx(228 + i, FOOT_Y + 14 + j, d > 26 ? RGB(190, 130, 30) : RGB(255, 214, 80));
-		}
-	}
+	drawCoin(230, FOOT_Y + 14, 10);
 	char line[24];
 	snprintf(line, sizeof(line), "%lu", (unsigned long) st->coins);
 	int cs = gTextW(line, 2) <= 62 ? 2 : 1;
