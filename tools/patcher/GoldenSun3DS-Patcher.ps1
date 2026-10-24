@@ -15,8 +15,7 @@ param(
     [string]$Rom1 = '',
     [string]$Rom2 = '',
     [string]$Save1 = '',
-    [string]$Save2 = '',
-    [ValidateSet('flat', 'static', 'spin')][string]$Banner = 'flat'   # HOME Menu banner: flat logo image, still 3D logo or spinning 3D logo (both experimental)
+    [string]$Save2 = ''
 )
 $ErrorActionPreference = 'Stop'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -145,7 +144,7 @@ function Install-Folder([string]$console, [string]$sd, [string]$rom1, [string]$r
     return $log
 }
 
-function Build-Cia([string]$console, [string]$cia, [string]$rom1, [string]$rom2, [string]$save1, [string]$save2, [string]$bannerMode = 'flat') {
+function Build-Cia([string]$console, [string]$cia, [string]$rom1, [string]$rom2, [string]$save1, [string]$save2) {
     $makerom = Find-Tool 'makerom'
     $bannertool = Find-Tool 'bannertool'
     if (-not $makerom -or -not $bannertool) { throw 'makerom.exe and bannertool.exe are needed for a CIA: put them in a "bin" folder next to this script (or on PATH).' }
@@ -167,16 +166,8 @@ function Build-Cia([string]$console, [string]$cia, [string]$rom1, [string]$rom2,
         }
         Set-Content -Path (Join-Path $romfs 'profile.txt') -Value $console -NoNewline
         $log.Add("Profile: $console")
-        $model = switch ($bannerMode) { 'spin' { Find-Asset 'banner3d.cgfx' } 'static' { Find-Asset 'banner3d_static.cgfx' } default { $null } }
-        if ($model) {   # a 3D relief logo model (experimental)
-            & $bannertool makebanner -ci $model -a $wav -o "$work\banner.bnr" | Out-Null
-            if ($LASTEXITCODE) { throw 'bannertool could not make the 3D banner (try the flat banner option).' }
-            $log.Add('Banner: 3D logo, ' + $(if ($bannerMode -eq 'spin') { 'spinning' } else { 'still' }) + ' (experimental)')
-        } else {
-            & $bannertool makebanner -i $banner -a $wav -o "$work\banner.bnr" | Out-Null
-            if ($LASTEXITCODE) { throw 'bannertool could not make the banner.' }
-            $log.Add('Banner: flat logo image')
-        }
+        & $bannertool makebanner -i $banner -a $wav -o "$work\banner.bnr" | Out-Null
+        if ($LASTEXITCODE) { throw 'bannertool could not make the banner.' }
         & $bannertool makesmdh -s 'GoldenSun3DS' -l 'Golden Sun 3DS Companion' -p 'GoldenSun3DS' -i $icon -o "$work\icon.smdh" | Out-Null
         if ($LASTEXITCODE) { throw 'bannertool could not make the icon.' }
         $outDir = Split-Path -Parent $cia
@@ -196,7 +187,7 @@ function Build-Cia([string]$console, [string]$cia, [string]$rom1, [string]$rom2,
 }
 
 if ($NoGui) {
-    if ($Output -eq 'cia') { Build-Cia $Console $CiaPath $Rom1 $Rom2 $Save1 $Save2 $Banner | ForEach-Object { Write-Output $_ } }
+    if ($Output -eq 'cia') { Build-Cia $Console $CiaPath $Rom1 $Rom2 $Save1 $Save2 | ForEach-Object { Write-Output $_ } }
     else { Install-Folder $Console $SdRoot $Rom1 $Rom2 $Save1 $Save2 | ForEach-Object { Write-Output $_ } }
     return
 }
@@ -302,15 +293,7 @@ $grp1 = New-Group 22 112 600 66
 $rNew = New-Radio 'New 3DS / New 3DS XL / New 2DS XL   (two cores, targets 60 fps)' 18 4 $true $grp1
 $rOld = New-Radio 'Old 3DS / 3DS XL / 2DS   (single core, about 25-30 fps)' 18 32 $false $grp1
 
-[void](New-Label '2.  What should it make?' 22 182 300 24 $text 11 $true)
-$cmbBanner = New-Object System.Windows.Forms.ComboBox
-$cmbBanner.DropDownStyle = 'DropDownList'; $cmbBanner.Location = New-Object System.Drawing.Point(330, 182); $cmbBanner.Size = New-Object System.Drawing.Size(290, 26)
-$cmbBanner.BackColor = $card; $cmbBanner.ForeColor = $text; $cmbBanner.FlatStyle = 'Flat'
-[void]$cmbBanner.Items.Add('Banner: flat logo (default)')
-[void]$cmbBanner.Items.Add('Banner: 3D logo, still (experimental)')
-[void]$cmbBanner.Items.Add('Banner: 3D logo, spinning (experimental)')
-$cmbBanner.SelectedIndex = 0
-$form.Controls.Add($cmbBanner)
+[void](New-Label '2.  What should it make?' 22 182 560 24 $text 11 $true)
 $grp2 = New-Group 22 206 600 62
 $rFolder = New-Radio 'Files for the SD card (Homebrew Launcher, a 3ds folder)' 18 32 $false $grp2
 $rCia = New-Radio 'One installable .cia with the ROMs inside (HOME Menu)  - recommended' 18 4 $true $grp2
@@ -363,7 +346,7 @@ $btnGo.Add_Click({
     $btnGo.Enabled = $false
     try {
         $console = if ($rOld.Checked) { 'old' } else { 'new' }
-        if ($rCia.Checked) { $lines = Build-Cia $console $boxOut.Text.Trim() $boxR1.Text.Trim() $boxR2.Text.Trim() $boxS1.Text.Trim() $boxS2.Text.Trim() $(@('flat', 'static', 'spin')[$cmbBanner.SelectedIndex]) }
+        if ($rCia.Checked) { $lines = Build-Cia $console $boxOut.Text.Trim() $boxR1.Text.Trim() $boxR2.Text.Trim() $boxS1.Text.Trim() $boxS2.Text.Trim() }
         else { $lines = Install-Folder $console $boxOut.Text.Trim() $boxR1.Text.Trim() $boxR2.Text.Trim() $boxS1.Text.Trim() $boxS2.Text.Trim() }
         $logBox.Text = ($lines -join "`r`n")
     } catch {

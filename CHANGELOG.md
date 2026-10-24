@@ -48,6 +48,4 @@ Goal of this release: find obvious problems. Everything below is new in a first 
 
 - The pick screen now shows the build time under the version number (and the Patch notes window shows when the patcher was built), so two installs of the same version can be told apart.
 
-- Experimental 3D HOME Menu banner: the logo as a relief model that turns on the spot (`docs/BANNER3D.md`); choose it in the banner drop-down in the patcher (flat logo by default; "3D still" and "3D spinning" are experimental, the first spinning test showed a glitched banner).
-
 **Known issues**: see the README ("Known limitations in this beta").
