@@ -58,8 +58,8 @@ def main():
     print('== build')
     ok = build('stateprobe.exe', ['tools/stateprobe.c', 'src/gs_state.c'])
     ok &= build('navtest.exe', ['tools/navtest.c', 'src/menunav.c', 'src/gs_state.c'])
-    ok &= build('maptest.exe', ['tools/maptest.c', 'src/mapview.c', 'src/gfx.c', 'src/font_data.c', 'src/art.c', 'src/art_data.c', 'src/logo_data.c', 'src/icon_data.c', 'src/gs_areas.c', 'src/gs_state.c'])
-    ok &= build('ui_preview.exe', ['tools/ui_preview.c', 'src/ui.c', 'src/gfx.c', 'src/font_data.c', 'src/art.c', 'src/art_data.c', 'src/logo_data.c', 'src/icon_data.c', 'src/mapview.c', 'src/menunav.c', 'src/gs_state.c', 'src/gs_areas.c', 'src/gs_items.c', 'src/gs_abilities.c', 'src/bestiary.c', 'src/gs_djinn.c', 'src/dialoglog.c', 'src/gs_field.c', 'src/gs_classes.c', 'src/gs_itemdesc.c'],
+    ok &= build('maptest.exe', ['tools/maptest.c', 'src/mapview.c', 'src/gfx.c', 'src/font_data.c', 'src/art.c', 'src/art_data.c', 'src/logo_data.c', 'src/icon_data.c', 'src/mapicon_data.c', 'src/gs_areas.c', 'src/gs_state.c'])
+    ok &= build('ui_preview.exe', ['tools/ui_preview.c', 'src/ui.c', 'src/gfx.c', 'src/font_data.c', 'src/art.c', 'src/art_data.c', 'src/logo_data.c', 'src/icon_data.c', 'src/mapicon_data.c', 'src/mapview.c', 'src/menunav.c', 'src/gs_state.c', 'src/gs_areas.c', 'src/gs_items.c', 'src/gs_abilities.c', 'src/bestiary.c', 'src/gs_djinn.c', 'src/dialoglog.c', 'src/gs_field.c', 'src/gs_classes.c', 'src/gs_itemdesc.c'],
                 host_mgba=False)
     ok &= build('dlog_test.exe', ['tools/dlog_test.c', 'src/dialoglog.c'], host_mgba=False)
     ok &= build('best_test.exe', ['tools/best_test.c', 'src/bestiary.c'], host_mgba=False)

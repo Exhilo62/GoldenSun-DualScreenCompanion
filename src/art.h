@@ -27,5 +27,6 @@ const Sprite* artDjinn(int element);
 const Sprite* artCorner(void);
 const Sprite* artCompass(void);
 const Sprite* artLogo(void);         // 144 x 72 Golden Sun logo with alpha
+const Sprite* artMapIcon(int id);    // 0 = Center (crosshair), 1 = Zoom (magnifier), 20 px tall, with alpha
 const uint16_t* artBackground(void);
 #endif

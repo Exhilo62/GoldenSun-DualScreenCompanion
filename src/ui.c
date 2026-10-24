@@ -1176,16 +1176,6 @@ static void djinnTab(const GsState* st, const UiView* v) {
 	}
 }
 
-// 13px glyphs for the map buttons (gold line art).
-static void glyphCrosshair(int cx, int cy, uint16_t c) {
-	for (int j = -5; j <= 5; ++j) for (int i = -5; i <= 5; ++i) { int d = i * i + j * j; if (d >= 12 && d <= 20) gPx(cx + i, cy + j, c); }
-	gRect(cx - 7, cy, 4, 1, c); gRect(cx + 4, cy, 4, 1, c); gRect(cx, cy - 7, 1, 4, c); gRect(cx, cy + 4, 1, 4, c);
-	gPx(cx, cy, c);
-}
-static void glyphMagnifier(int cx, int cy, uint16_t c) {
-	for (int j = -4; j <= 4; ++j) for (int i = -4; i <= 4; ++i) { int d = i * i + j * j; if (d >= 9 && d <= 16) gPx(cx - 2 + i, cy - 2 + j, c); }
-	for (int k = 0; k < 5; ++k) { gPx(cx + 2 + k, cy + 2 + k, c); gPx(cx + 3 + k, cy + 2 + k, c); }
-}
 static void mapTab(const GsState* st, const UiView* v) {
 	gPanel(4, CONTENT_Y, 312, 134, C_CARD_T, C_CARD_B, C_GOLD);
 	if (!gsRam()->hasMap) {   // player position / camera not located for this game yet
@@ -1208,8 +1198,8 @@ static void mapTab(const GsState* st, const UiView* v) {
 		gPanel(x, MAP_BTN_Y, w, MAP_BTN_H + 3, C_PANEL_T, C_PANEL_B, C_GOLD);
 		const char* t = i == 0 ? "Center" : (v->mapZoom == 1 ? "Zoom: detail" : "Zoom: overview");
 		int cy = MAP_BTN_Y + 11;
-		if (i == 0) glyphCrosshair(x + 17, cy, C_GOLD);
-		else glyphMagnifier(x + 16, cy, C_GOLD);
+		const Sprite* ic = artMapIcon(i);   // baked from assets/reference/map_*_icon.png
+		gSprite(x + 17 - ic->w / 2, cy - ic->h / 2, ic);
 		gTextShadow(x + 30, MAP_BTN_Y + 8, t, 1, C_TEXT);
 	}
 }
@@ -1339,7 +1329,7 @@ static void footer(const GsState* st) {
 		for (int k = 0; k < 3 && k < n; ++k) snprintf(first[k], sizeof(first[k]), "%.5s %u", all[k]->name, (unsigned) all[k]->agi);
 		snprintf(id, sizeof(id), "AGI %s>%s>%s", first[0], first[1], first[2]);
 	}
-	else snprintf(id, sizeof(id), "Map %03X   Party Lv %u", (unsigned) st->areaGroup, (unsigned) st->party[0].level);
+	else snprintf(id, sizeof(id), "Party Lv %u", (unsigned) st->party[0].level);   // the area name is already on the Map tab and in the footer title
 	gText(42, FOOT_Y + 17, footerNote ? footerNote : id, 0, footerNote ? C_GOLD : C_DIM);
 	gPanel(212, FOOT_Y, 104, FOOT_H, C_CARD_T, C_CARD_B, C_GOLD);
 	drawCoin(228, FOOT_Y + 14, 8);
