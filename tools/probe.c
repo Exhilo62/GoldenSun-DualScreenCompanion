@@ -77,6 +77,13 @@ int main(int argc, char** argv) {
 			for (uint32_t a = 0x03000000; a < 0x03008000; ++a) fputc(core->busRead8(core, a), f);
 			for (uint32_t a = 0x02000000; a < 0x02040000; ++a) fputc(core->busRead8(core, a), f);
 			fclose(f);
+		} else if (!strcmp(cmd, "vdump")) {   // vdump FILE: palette RAM (1 KB), VRAM (96 KB), OAM (1 KB), I/O registers (0x60 bytes)
+			FILE* f = fopen(arg, "wb");
+			for (uint32_t a = 0x05000000; a < 0x05000400; ++a) fputc(core->busRead8(core, a), f);
+			for (uint32_t a = 0x06000000; a < 0x06018000; ++a) fputc(core->busRead8(core, a), f);
+			for (uint32_t a = 0x07000000; a < 0x07000400; ++a) fputc(core->busRead8(core, a), f);
+			for (uint32_t a = 0x04000000; a < 0x04000060; a += 2) { uint16_t v = (uint16_t) core->busRead16(core, a); fputc(v & 255, f); fputc(v >> 8, f); }
+			fclose(f);
 		} else if (!strcmp(cmd, "save")) {
 			struct VFile* vf = VFileOpen(arg, O_CREAT | O_TRUNC | O_RDWR);
 			mCoreSaveStateNamed(core, vf, SAVESTATE_SAVEDATA | SAVESTATE_RTC);
