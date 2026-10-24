@@ -414,7 +414,7 @@ void uiUpdate(UiView* v, const GsState* st, bool down, int x, int y, UiOutput* o
 			return;
 		}
 	}
-	if (v->tab == TAB_ITEMS && st->mode == GS_MODE_FIELD && inRect(x, y, 222, CONTENT_Y + CONTENT_H - 30, 88, 18)) { out->equipBest = v->itemChar < st->partySize ? v->itemChar : 0; return; }
+	if (v->tab == TAB_ITEMS && st->mode == GS_MODE_FIELD && inRect(x, y, 226, CONTENT_Y + CONTENT_H - 31, 82, 15)) { out->equipBest = v->itemChar < st->partySize ? v->itemChar : 0; return; }
 	if (v->tab == TAB_ITEMS && st->mode == GS_MODE_FIELD && y >= CONTENT_Y + 28 && y < CONTENT_Y + 28 + 8 * 14 && x >= 8 && x < 312) {
 		int who = v->itemChar < st->partySize ? v->itemChar : 0;
 		int want = (x >= 160 ? 8 : 0) + (y - (CONTENT_Y + 28)) / 14, shown = 0;
@@ -1243,8 +1243,8 @@ static void itemsTab(const GsState* st, const UiView* v) {
 	snprintf(line, sizeof(line), "EXP %lu", (unsigned long) st->party[who].exp);
 	gTextRight(306, CONTENT_Y + CONTENT_H - 12, line, 1, C_DIM);
 	gText(14, CONTENT_Y + CONTENT_H - 12, "Gold = equipped  Tap = equip  Hold = info", 0, C_DIM);
-	gPanel(222, CONTENT_Y + CONTENT_H - 30, 88, 18, C_ACTIVE_T, C_ACTIVE_B, C_GOLD);   // sits above the EXP line and below the last item row
-	gTextCentered(266, CONTENT_Y + CONTENT_H - 27, "Equip best", 1, C_GOLD);   // body font with room for the q and p tails; acts on the member shown above
+	gPanel(226, CONTENT_Y + CONTENT_H - 31, 82, 15, C_ACTIVE_T, C_ACTIVE_B, C_GOLD);   // sits above the EXP line and below the last item row
+	gTextCentered(267, CONTENT_Y + CONTENT_H - 29, "Equip best", 1, C_GOLD);   // body font with room for the q and p tails; acts on the member shown above
 	if (v->descFrames > 0) {   // description popup from a long press
 		gPanel(10, CONTENT_Y + CONTENT_H - 56, 300, 50, C_PANEL_T, C_PANEL_B, C_GOLD);
 		gTextShadow(18, CONTENT_Y + CONTENT_H - 51, gsItemName((unsigned) v->descId), 1, C_GOLD);
