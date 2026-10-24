@@ -232,22 +232,30 @@ function New-Box($x, $y, $w) {
     $t.BackColor = $card; $t.ForeColor = $text; $t.BorderStyle = 'FixedSingle'
     $form.Controls.Add($t); return $t
 }
-function New-Radio($t, $x, $y, $checked) {
+function New-Radio($t, $x, $y, $checked, $parent) {
     $r = New-Object System.Windows.Forms.RadioButton
     $r.Text = $t; $r.Location = New-Object System.Drawing.Point($x, $y); $r.Size = New-Object System.Drawing.Size(560, 26)
-    $r.Checked = $checked; $r.ForeColor = $text; $form.Controls.Add($r); return $r
+    $r.Checked = $checked; $r.ForeColor = $text; $parent.Controls.Add($r); return $r
+}
+# Radio buttons that share a parent form one group, so each question gets its own panel (otherwise only one of the four could be selected).
+function New-Group($x, $y, $w, $h) {
+    $p = New-Object System.Windows.Forms.Panel
+    $p.Location = New-Object System.Drawing.Point($x, $y); $p.Size = New-Object System.Drawing.Size($w, $h); $p.BackColor = $form.BackColor
+    $form.Controls.Add($p); return $p
 }
 
 [void](New-Label 'GOLDEN SUN 3DS' 20 14 580 36 $gold 20 $true)
 [void](New-Label 'Pick your console, point to your own ROMs, and install.' 22 52 580 22 $dim 10 $false)
 
 [void](New-Label '1.  Which 3DS do you have?' 22 88 400 24 $text 11 $true)
-$rNew = New-Radio 'New 3DS / New 3DS XL / New 2DS XL   (two cores, targets 60 fps)' 40 116 $true
-$rOld = New-Radio 'Old 3DS / 3DS XL / 2DS   (single core, about 25-30 fps)' 40 144 $false
+$grp1 = New-Group 22 112 600 66
+$rNew = New-Radio 'New 3DS / New 3DS XL / New 2DS XL   (two cores, targets 60 fps)' 18 4 $true $grp1
+$rOld = New-Radio 'Old 3DS / 3DS XL / 2DS   (single core, about 25-30 fps)' 18 32 $false $grp1
 
 [void](New-Label '2.  What should it make?' 22 182 560 24 $text 11 $true)
-$rFolder = New-Radio 'Files for the SD card (Homebrew Launcher, a 3ds folder)' 40 238 $false
-$rCia = New-Radio 'One installable .cia with the ROMs inside (HOME Menu)  - recommended' 40 210 $true
+$grp2 = New-Group 22 206 600 62
+$rFolder = New-Radio 'Files for the SD card (Homebrew Launcher, a 3ds folder)' 18 32 $false $grp2
+$rCia = New-Radio 'One installable .cia with the ROMs inside (HOME Menu)  - recommended' 18 4 $true $grp2
 
 [void](New-Label '3.  Where to put it' 22 276 560 24 $text 11 $true)
 $boxOut = New-Box 40 304 440
