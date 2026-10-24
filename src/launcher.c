@@ -74,10 +74,10 @@ static void present(void) {
 
 // Draws one top and one bottom frame into both framebuffer halves (the 3DS swaps buffers, so draw twice).
 static void paintGameCard(int x, int y, int w, int h, bool sel, bool last, bool installed, int game) {
-	const Sprite* face = artCardFace(game);
+	const Sprite* face = artPortrait(game ? "Felix" : "Isaac");   // the original in-game portraits (the fan-art ones are not used)
 	const Sprite* logo = artCardLogo(game);
-	int fx = x + 7, fy = y + (h - face->h) / 2;
-	int lx = x + 196 - logo->w / 2, ly = y + 3;   // banner right of the portrait, clear of the LAST PLAYED tag below it
+	int fx = x + 8, fy = y + (h - face->h) / 2;
+	int lx = x + 150 - logo->w / 2, ly = y + (h - logo->h) / 2;   // banner just right of the portrait, clear of the LAST PLAYED tag at the top right
 	if (!installed) {   // not installed: dim, no highlight, and a hint on how to add it
 		gPanel(x, y, w, h, RGB(16, 24, 48), RGB(8, 12, 28), RGB(70, 76, 100));
 		gSpriteTint(fx, fy, face, RGB(10, 16, 36), 190);
@@ -89,8 +89,8 @@ static void paintGameCard(int x, int y, int w, int h, bool sel, bool last, bool 
 	gSprite(fx, fy, face);
 	gSprite(lx, ly, logo);
 	if (last) {
-		gPill(x + w - 74, y + 58, 68, 14, L_CARD_T, L_CARD_B, L_GOLD_DIM);
-		gTextCentered(x + w - 40, y + 61, "LAST PLAYED", 0, L_GOLD);
+		gPill(x + w - 74, y + 6, 68, 14, L_CARD_T, L_CARD_B, L_GOLD_DIM);
+		gTextCentered(x + w - 40, y + 9, "LAST PLAYED", 0, L_GOLD);
 	}
 }
 
