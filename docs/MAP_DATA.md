@@ -20,7 +20,18 @@ Resource used: the Golden Sun Data Wiki "ROM Map" page (gsdata.fandom.com). Its 
 7. **Camera**: the game's BG scroll shadow is at IWRAM `0x03001AD0` (BG0 hofs, vofs, BG1 ..., 16 bytes); camera = BG1 = `0x03001AD4/6`. Table pixel of a layer's top-left screen pixel = camera + layer origin (in px) - 960 on x (checked for Vale and a house). For a map, layer-local pixel = (cam x - 960, cam y).
 8. Probe additions: `vdump`, `iotrace` (changes of write-only I/O registers), `bp`, `trace`, `steps`, and `build/gbadis.exe` (Thumb/ARM disassembler).
 
+## The Lost Age (BAGFE) -- same engine, different tables (verified against RAM in six maps, and in the app)
+- File table at ROM `0x680000` (1723 entries), map table `0xF17AC` (8 bytes per id, 325 ids, id 0x0E.. etc.), graphics-set table `0x2F380` (12 bytes per set), file base **620** (the loader `0x0802A6B8` adds `0x26C` to each u16). A set row is `[container, palette, image x4]`; rows often share files (e.g. rows 5 and 6 share the images).
+- Dictionary / cell table / palette / tile image formats and RAM addresses (`0x02020000`, `0x02010000`) are identical to Golden Sun. The camera is at `0x0300112C/2E`.
+- **Layer-local coordinates** (both games): layer 2 (BG1) scrolls with the camera, so a layer's position is camera + (its origin - layer 2's origin); the layer-local pixel is `(camera - layer 2 origin * 8) mod (layer size in pixels)` (the mod matters in The Lost Age where layer 2's origin is below the map).
+- Rooms: several maps share one container, so the app keeps only the connected group of rooms (occupied 16x16 cells grown by 1 cell) around the player.
+
+## Status
+Implemented in `src/mapdecode.c` (both games), used by `src/mapview.c` (Map tab) and tested by `tools/mapdecode_test.c` / `tools/selftest.py`
+(all 205 / 324 of 325 map ids decode; Vale matches the Python reference pixel for pixel).
+
 ## Still to do
-- Port `gsmap.py` to C (`src/mapdecode.c`) and run it inside the app on the user's own ROM when a map is entered (no patcher step, nothing copyrighted stored): decode, draw the three layers into one image for the current map, draw it on the Map tab with the player marker.
-- Blend layer 2 only where the game does (read the map's blend setting), handle the world map (affine) and maps whose graphics sets share rooms (use the camera to pick the room).
-- Check a handful of other maps (a cave, a town interior, the Lost Age's own table addresses).
+- The world maps (affine layers) still use the stitched map; the Lost Age world map id is not known yet.
+- Layer 2 is skipped where the game alpha-blends it (a glow layer in Golden Sun houses); maps that blend it differently may look slightly different from the game.
+- Maps with no data in the layers the app draws (some cutscene / battle-only ids) show nothing.
+- Other regional releases (Japanese, German...) have different table addresses; they fall back to the stitched map.

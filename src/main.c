@@ -755,7 +755,7 @@ int main(void) {
 	}
 	bgWriteInit(worker ? 2 : -1);   // SD writes run on their own low-priority thread
 	mapInit();
-	{ struct GBA* gb = core->board; if (game == GS_GAME_1) mdInit((const uint8_t*) gb->memory.rom, gb->memory.romSize); else mdInit(NULL, 0); }   // draw maps from the ROM when its tables are recognised
+	{ struct GBA* gb = core->board; mdInit((const uint8_t*) gb->memory.rom, gb->memory.romSize, game == GS_GAME_1 ? 1 : 2); }   // draw maps from the ROM when its tables are recognised
 	gsAreasLoad(areasPath);
 	mapLoad(mapsPath);
 	bestLoad(bestPath);

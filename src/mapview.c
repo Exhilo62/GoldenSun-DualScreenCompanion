@@ -99,7 +99,7 @@ bool mapRomActive(void) { return romMode; }
 
 static void romEnter(const GsState* st, int psx, int psy) {
 	bool skip = ((st->bldcnt >> 6) & 3) == 1 && (st->bldcnt & 2);   // the game alpha blends BG1 (a glow layer in houses): leave it out
-	romMode = mdEnter(st->areaGroup, st->bgx3, st->bgy3, psx, psy, skip);
+	romMode = mdEnter(st->areaGroup, st->camX, st->camY, psx, psy, skip);
 	romSkipPend = 0;
 	++version;
 }
@@ -107,7 +107,7 @@ static void romEnter(const GsState* st, int psx, int psy) {
 void mapUpdate(const uint16_t* video, size_t stride, const GsState* st) {
 	if (st->mode != GS_MODE_FIELD) return;
 	if (st->areaGroup != 2 && st->playerX == 0 && st->playerY == 0) return;  // transition frames (map 0x1FE etc.)
-	if (mdAvailable() && st->bgOk && st->areaGroup != 2) {
+	if (mdAvailable() && st->areaGroup != 2) {
 		int psx = st->hasSprite ? st->sprX + 16 : 120, psy = st->hasSprite ? st->sprY + 26 : 90;
 		if (st->areaGroup != romId) {
 			romId = st->areaGroup;
@@ -118,8 +118,9 @@ void mapUpdate(const uint16_t* video, size_t stride, const GsState* st) {
 		}
 		if (romMode) {
 			const MdMap* m = mdCurrent();
-			romPx = (st->bgx3 - m->l0x + psx - m->originX) / 2;
-			romPy = (st->bgy3 - m->l0y + psy - m->originY) / 2;
+			int lx = ((st->camX - m->offX) % m->extX + m->extX) % m->extX, ly = ((st->camY - m->offY) % m->extY + m->extY) % m->extY;   // layer-local, wrapping
+			romPx = (lx + psx - m->originX) / 2;
+			romPy = (ly + psy - m->originY) / 2;
 			++version;
 			return;
 		}

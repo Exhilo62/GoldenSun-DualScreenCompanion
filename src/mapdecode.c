@@ -2,14 +2,17 @@
 #include <stdlib.h>
 #include <string.h>
 
-// USA / Europe Golden Sun (AAGSE). See docs/MAP_DATA.md.
-#define MFT_OFF 0x320000u        // 975 u32 ROM pointers
-#define MFT_COUNT 975
-#define MAP_TABLE_OFF 0x9F1ACu   // 8 bytes per map id: u16 graphics set, ...
-#define SET_TABLE_OFF 0x13784u   // 12 bytes per graphics set: six u16 file offsets (+296)
-#define MAP_IDS 205
-#define FILE_BASE 296
+// USA / Europe Golden Sun (AAGSE) and The Lost Age (BAGFE). See docs/MAP_DATA.md.
 #define CELLS 128                // the cell table is 128 x 128
+// per game: master file table (u32 ROM pointers), map table (8 bytes per map id: u16 graphics set, ...), graphics set table (12 bytes per set: six u16
+// file numbers, relative to fileBase: container, palette, three tile images, one more), number of map ids
+static struct { uint32_t mft, mftCount, mapTable, setTable, fileBase, mapIds; } cfg;
+#define MFT_OFF cfg.mft
+#define MFT_COUNT cfg.mftCount
+#define MAP_TABLE_OFF cfg.mapTable
+#define SET_TABLE_OFF cfg.setTable
+#define MAP_IDS cfg.mapIds
+#define FILE_BASE cfg.fileBase
 
 static const uint8_t* rom;
 static size_t romSize;
@@ -21,20 +24,29 @@ static int gapR = 1;
 static uint32_t rd16(uint32_t o) { return rom[o] | (uint32_t) rom[o + 1] << 8; }
 static uint32_t rd32(uint32_t o) { return rd16(o) | rd16(o + 2) << 16; }
 
-bool mdInit(const uint8_t* r, size_t size) {
+bool mdInit(const uint8_t* r, size_t size, int game) {
 	mdForget();
 	rom = NULL;
 	romSize = 0;
 	if (!r || size < 0x400000) return false;
-	rom = r;
-	romSize = size;
-	// the table must point at itself, and the map table must start with the known Vale / house entries
-	if (rd32(MFT_OFF) != 0x08000000u || rd32(MFT_OFF + 4) != 0x08000000u + MFT_OFF || rd16(MAP_TABLE_OFF + 8 * 3) != 2 || rd16(MAP_TABLE_OFF + 8 * 7) != 6) {
-		rom = NULL;
-		romSize = 0;
+	if (game == 1) {
+		cfg.mft = 0x320000; cfg.mftCount = 975; cfg.mapTable = 0x9F1AC; cfg.setTable = 0x13784; cfg.fileBase = 296; cfg.mapIds = 205;
+	} else if (game == 2 && size >= 0x1000000) {
+		cfg.mft = 0x680000; cfg.mftCount = 1723; cfg.mapTable = 0xF17AC; cfg.setTable = 0x2F380; cfg.fileBase = 620; cfg.mapIds = 325;
+	} else {
 		return false;
 	}
-	return true;
+	rom = r;
+	romSize = size;
+	// the file table must point at itself, and the map table must hold the entries known from each game's own maps
+	bool ok = rd32(MFT_OFF) == 0x08000000u && rd32(MFT_OFF + 4) == 0x08000000u + MFT_OFF;
+	if (ok && game == 1) ok = rd16(MAP_TABLE_OFF + 8 * 3) == 2 && rd16(MAP_TABLE_OFF + 8 * 7) == 6;
+	if (ok && game == 2) ok = rd16(MAP_TABLE_OFF + 8 * 5) == 4 && rd16(MAP_TABLE_OFF + 8 * 0x8B) == 133;
+	if (!ok) {
+		rom = NULL;
+		romSize = 0;
+	}
+	return ok;
 }
 
 bool mdAvailable(void) { return rom != NULL; }
@@ -163,7 +175,7 @@ size_t mdDecompress(const uint8_t* in, size_t inSize, uint8_t* out, size_t cap) 
 // ---- map drawing -----------------------------------------------------------------------------------------------------------------------
 
 static uint32_t fileAddr(int n) {
-	if (n < 0 || n >= MFT_COUNT) return 0;
+	if (n < 0 || n >= (int) MFT_COUNT) return 0;
 	uint32_t a = rd32(MFT_OFF + 4u * (uint32_t) n) & 0x1FFFFFFu;
 	return a < romSize ? a : 0;
 }
@@ -206,10 +218,11 @@ static void drawBlock(uint16_t* col, uint8_t* has, const uint16_t* dict, int dic
 	}
 }
 
-bool mdEnter(int mapId, int bg3x, int bg3y, int psx, int psy, bool skipLayer2) {
+bool mdEnter(int mapId, int camX, int camY, int psx, int psy, bool skipLayer2) {
 	mdForget();
-	if (!rom || mapId < 0 || mapId >= MAP_IDS) return false;
+	if (!rom || mapId < 0 || mapId >= (int) MAP_IDS) return false;
 	unsigned gs = rd16(MAP_TABLE_OFF + 8u * (unsigned) mapId);
+	if (gs > 400) return false;
 	uint32_t files[6];
 	for (int i = 0; i < 6; ++i) files[i] = fileAddr(FILE_BASE + (int) rd16(SET_TABLE_OFF + 12u * gs + 2u * (unsigned) i));
 	if (!files[0] || !files[1] || !files[2] || !files[3] || !files[4] || files[0] + 0x40 > romSize) return false;
@@ -303,7 +316,10 @@ bool mdEnter(int mapId, int bg3x, int bg3y, int psx, int psy, bool skipLayer2) {
 			}
 		}
 		// keep only the group of rooms the player is in: occupied cells grown by gapR cells are connected, the player's cell picks the group
-		int locCamX = bg3x - hb[12] * 8, locCamY = bg3y - hb[13] * 8;   // layer 0's origin (tiles * 8 = pixels); 0 in every map seen
+		// layer 2 (BG1) scrolls with the camera; every layer's position is camera + (its origin - layer 2's origin), so layer-local = camera - layer 2's origin
+		int offX = hb[12 + 16] * 8, offY = hb[13 + 16] * 8;
+		int extX = w * 16, extY = h * 16;
+		int locCamX = ((camX - offX) % extX + extX) % extX, locCamY = ((camY - offY) % extY + extY) % extY;
 		int plx = locCamX + psx, ply = locCamY + psy;
 		int x0 = 0, y0 = 0, x1 = w - 1, y1 = h - 1;
 		if (!noCrop) {
@@ -375,8 +391,10 @@ bool mdEnter(int mapId, int bg3x, int bg3y, int psx, int psy, bool skipLayer2) {
 		cur.px = out;
 		cur.originX = x0 * 16;
 		cur.originY = y0 * 16;
-		cur.l0x = hb[12] * 8;
-		cur.l0y = hb[13] * 8;
+		cur.offX = offX;
+		cur.offY = offY;
+		cur.extX = extX;
+		cur.extY = extY;
 		cur.skipLayer2 = skipLayer2;
 		curValid = true;
 		ok = true;

@@ -5,9 +5,13 @@ ROM = None
 MFT = 0x320000
 
 
-def load(path='/d/gs3ds/build/gs.gba'):
-    global ROM
+def load(path='/d/gs3ds/build/gs.gba', game=1):
+    global ROM, MFT, MAP_TABLE, SET_TABLE, FILE_BASE
     ROM = open(path, 'rb').read()
+    if game == 2:   # The Lost Age (BAGFE)
+        MFT, MAP_TABLE, SET_TABLE, FILE_BASE = 0x680000, 0xF17AC, 0x2F380, 620
+    else:
+        MFT, MAP_TABLE, SET_TABLE, FILE_BASE = 0x320000, 0x9F1AC, 0x13784, 296
     return ROM
 
 
@@ -118,14 +122,16 @@ def decompress(data, pos):
 # ---- map rendering ----------------------------------------------------------------------------------------------------------------------------
 
 MAP_TABLE = 0x9F1AC       # 8 bytes per map id: u16 graphicsSet, 0, mapCode file, flags
-SET_TABLE = 0x13784       # 12 bytes per graphicsSet: six u16 MFT offsets (+296)
+SET_TABLE = 0x13784       # 12 bytes per graphicsSet: six u16 MFT offsets (+FILE_BASE)
+FILE_BASE = 296
+
 LAYER_ORIGIN = ((0, 0), (0, 60), (60, 0))   # cell origin of each of the three layers inside the 128x128 cell table
 LAYER_CELLS = 60
 
 
 def map_files(map_id):
     gs = struct.unpack_from('<H', ROM, MAP_TABLE + 8 * map_id)[0]
-    return gs, [296 + x for x in struct.unpack_from('<6H', ROM, SET_TABLE + 12 * gs)]
+    return gs, [FILE_BASE + x for x in struct.unpack_from('<6H', ROM, SET_TABLE + 12 * gs)]
 
 
 def bgr555(c):

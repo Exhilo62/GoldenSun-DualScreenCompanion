@@ -19,7 +19,7 @@ static int readU16(GsMemRead rd, void* ctx, uint32_t addr, char* out, int max) {
 }
 
 const GsRam gsRamGs1 = {GS_AREA_A, GS_CAM_X, GS_CAM_Y, GS_PLAYER_X, GS_PLAYER_Y, GS_COINS, GS_CHAR_BASE, GS_ENEMY_BASE, GS_MENU_FLAGS,
-	GS_PARTY_MASK, GS_PARTY_ORDER, GS_BATTLE_SEL, GS_BATTLE_ACT, GS_BATTLE_DEPTH, GS_BATTLE_TOP, GS_BATTLE_CMD, GS_BATTLE_DESC, GS_BATTLE_TIDX, GS_BATTLE_CMDS, true, 7, 0x0807B6A8u, 0x02038D04u, 0x0807A830u, 0x0203396Cu, true, 0, 0, 0, 0x03001AD0u};
+	GS_PARTY_MASK, GS_PARTY_ORDER, GS_BATTLE_SEL, GS_BATTLE_ACT, GS_BATTLE_DEPTH, GS_BATTLE_TOP, GS_BATTLE_CMD, GS_BATTLE_DESC, GS_BATTLE_TIDX, GS_BATTLE_CMDS, true, 7, 0x0807B6A8u, 0x02038D04u, 0x0807A830u, 0x0203396Cu, true, 0, 0, 0};
 // The Lost Age (AGFE), verified from 5 saves + a new game; battle menu: depth 0x03007DD3 (3 hero bar, 0 list, 2 round menu/target), top 0x03007DB8 (1 on the hero bar),
 // description 0x03007D34, target name 0x03007CF4, ally target index 0x03007CC0 (party order; depth 2 with the flag at 255), highlighted command text 0x02035708; see docs/LOST_AGE.md. Camera scroll is at 0x0300112C/2E (leads the picture by one frame; camLag); 0x020322F6/FE is a smoother 1 px/frame counter that does NOT match the picture. The RAM player
 // coordinates (0x03001124/26, 0x02030ECA/CE) are not used, so playerX/playerY are 0 here and the reader derives the world position from camera + leader sprite.
@@ -45,8 +45,6 @@ void gsReadState(GsState* out, GsMemRead rd, void* ctx) {
 	out->areaGroup = (int) rd(ctx, ram->areaA, 2);   // u16 map id
 	out->areaKey = (uint32_t) out->areaGroup;
 	if (ram->hasMap) {
-		out->bgOk = ram->bgShadow != 0;
-		if (out->bgOk) { out->bgx3 = (int) rd(ctx, ram->bgShadow + 12, 2); out->bgy3 = (int) rd(ctx, ram->bgShadow + 14, 2); }
 		out->camX = (int) rd(ctx, ram->camX, 2);
 		out->camY = (int) rd(ctx, ram->camY, 2);
 		if (ram->playerX) {

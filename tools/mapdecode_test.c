@@ -12,17 +12,19 @@ int main(int argc, char** argv) {
 	uint8_t* rom = malloc(0x2000000);
 	size_t n = fread(rom, 1, 0x2000000, f);
 	fclose(f);
-	if (!mdInit(rom, n)) { printf("mdInit failed\n"); return 3; }
+	int game = getenv("MD_GAME") ? atoi(getenv("MD_GAME")) : 1;
+	int ids = game == 2 ? 325 : 205;
+	if (!mdInit(rom, n, game)) { printf("mdInit failed\n"); return 3; }
 	if (getenv("MD_GAP")) mdSetGap(atoi(getenv("MD_GAP")));
 	if (atoi(argv[2]) < 0) {   // every map id: report size / failures and the time
 		int okN = 0;
 		clock_t t0 = clock();
-		for (int id = 0; id < 205; ++id) {
+		for (int id = 0; id < ids; ++id) {
 			bool ok = mdEnter(id, 0, 0, 120, 90, false);
 			const MdMap* m = mdCurrent();
 			if (ok) { ++okN; printf("%d:%dx%d ", id, m->w, m->h); } else printf("%d:FAIL ", id);
 		}
-		printf("\n%d of 205 ok, %.0f ms per map\n", okN, (clock() - t0) * 1000.0 / CLOCKS_PER_SEC / 205);
+		printf("\n%d of %d ok, %.0f ms per map\n", okN, ids, (clock() - t0) * 1000.0 / CLOCKS_PER_SEC / ids);
 		return 0;
 	}
 	mdSetNoCrop(argc < 5);

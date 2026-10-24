@@ -11,16 +11,18 @@ typedef struct {
 	int w, h;            // canvas size in pixels (half resolution: 1 canvas pixel = 2 game pixels)
 	uint16_t* px;        // w*h RGB565, 0 = nothing here
 	int originX, originY;  // layer-local game pixel of canvas (0,0)
-	int l0x, l0y;        // game pixels to subtract from the BG3 scroll to get layer-local coordinates (layer 0's origin)
+	int offX, offY;      // game pixels to subtract from the camera to get layer-local coordinates (layer 2's origin: layer 2 scrolls with the camera)
+	int extX, extY;      // size of a layer in game pixels: the layer-local coordinate wraps at this size
 	bool skipLayer2;     // the glow layer (alpha blended by the game) was left out
 } MdMap;
 
-// rom/size: the cartridge image. Returns true when the tables of the USA/Europe Golden Sun were recognised; pass NULL for any other game.
-bool mdInit(const uint8_t* rom, size_t size);
+// rom/size: the cartridge image of game 1 (Golden Sun) or 2 (The Lost Age). Returns true when the tables of that game's USA/Europe release were
+// recognised; pass NULL for any other ROM.
+bool mdInit(const uint8_t* rom, size_t size, int game);
 bool mdAvailable(void);
-// Decodes and draws map `mapId`. bg3x/bg3y: the game's BG3 scroll (layer 0); psx/psy: the player's feet on screen. Only the connected group of rooms
-// around the player is kept. Returns false (and leaves no map) if the data does not look right.
-bool mdEnter(int mapId, int bg3x, int bg3y, int psx, int psy, bool skipLayer2);
+// Decodes and draws map `mapId`. camX/camY: the game's camera (world position of the screen's top-left); psx/psy: the player's feet on screen. Only the
+// connected group of rooms around the player is kept. Returns false (and leaves no map) if the data does not look right.
+bool mdEnter(int mapId, int camX, int camY, int psx, int psy, bool skipLayer2);
 const MdMap* mdCurrent(void);
 void mdForget(void);
 // For tests: keep the whole layer area instead of cropping to the player's rooms.

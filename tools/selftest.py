@@ -184,6 +184,10 @@ def main():
     d = open(os.path.join(B, 'c_map3.u16'), 'rb').read()
     px = _st.unpack_from('<%dH' % (240 * 752), d, 8)
     check('Vale canvas is fully painted', sum(1 for v in px if v) > 240 * 752 * 0.99)
+    ta = os.path.join(B, 'ta.gba')
+    if os.path.exists(ta):   # The Lost Age: every map id but one (an unused entry) decodes
+        out = run_env({'MD_GAME': '2'}, 'mapdecode_test.exe', ta, -1, 'x')
+        check('Lost Age maps decode', re.search(r'32[34] of 325 ok', out) is not None, out[-120:])
 
     print('== UI self-tests')
     out = run('ui_preview.exe', os.path.join(B, 'far.bin'), os.path.join(B, 'uit'))

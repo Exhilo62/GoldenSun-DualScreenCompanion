@@ -43,8 +43,6 @@ typedef struct {
 	uint32_t areaKey;          // changes when the area (map) changes
 	int areaGroup;             // GS_AREA_A byte: 3 = Vale outdoors
 	int camX, camY;            // scroll of the visible frame
-	int bgx3, bgy3;            // BG3 (layer 0) scroll from the game's shadow registers
-	bool bgOk;                 // bgx3/bgy3 were read (Golden Sun only)
 	uint16_t bldcnt;           // alpha-blend control as last written by the game (set by the caller from the I/O registers)
 	int playerX, playerY;      // world position
 	bool hasSprite;            // leader sprite found in OAM

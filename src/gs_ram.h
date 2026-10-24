@@ -91,7 +91,6 @@ typedef struct {
 	uint32_t battleLabel; // UTF-16: text of the highlighted battle command ("Fight", "Attack", "Psynergy"...); when set, replaces depth-3/cmd-index reading (The Lost Age)
 	uint32_t battleTname; // UTF-16: name of the targeted enemy while a target is being chosen
 	uint8_t camLag;       // the camera in RAM runs this many frames ahead of the picture (The Lost Age: 1); the stitcher then uses the value read just before the last emulated frame
-	uint32_t bgShadow;    // IWRAM: the game's copy of BG0..BG3 scroll (hofs, vofs u16 each); the ROM map drawing reads BG3 from it. 0 = unknown
 } GsRam;
 extern const GsRam gsRamGs1, gsRamTla;
 void gsSetRam(const GsRam* r);
