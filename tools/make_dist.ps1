@@ -25,6 +25,7 @@ CIA: install it with FBI (or Azahar: File > Install CIA) and start it from the H
 This is a beta: please report obvious problems (see the project page).
 "@ | Set-Content "$out\README.txt"
 "$ver $stage" | Set-Content "$out\version.txt"
+(Get-Date -Format "yyyy-MM-dd HH:mm") | Set-Content "$out\build.txt"
 Copy-Item "$root\CHANGELOG.md" "$out\PATCHNOTES.txt" -Force
 Write-Output "wrote $out"
 

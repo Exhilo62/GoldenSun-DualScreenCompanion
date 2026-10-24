@@ -272,7 +272,8 @@ $btnNotes.Add_Click({
     $nf = Find-File @("$here\PATCHNOTES.txt", "$here\..\..\CHANGELOG.md")
     $notes = if ($nf) { (Get-Content $nf -Raw) -replace "`r?`n", "`r`n" } else { 'No patch notes were found next to the patcher.' }
     $nfm = New-Object System.Windows.Forms.Form
-    $nfm.Text = 'GoldenSun3DS patch notes - version ' + $verText
+    $bf = Find-File @("$here\build.txt")
+    $nfm.Text = 'GoldenSun3DS patch notes - version ' + $verText + $(if ($bf) { ' (built ' + (Get-Content $bf -Raw).Trim() + ')' } else { '' })
     $nfm.Size = New-Object System.Drawing.Size(640, 560); $nfm.StartPosition = 'CenterParent'
     $nfm.BackColor = $navy; $nfm.ForeColor = $text; $nfm.FormBorderStyle = 'FixedDialog'; $nfm.MaximizeBox = $false; $nfm.MinimizeBox = $false
     $tb = New-Object System.Windows.Forms.TextBox

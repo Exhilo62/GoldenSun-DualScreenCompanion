@@ -21,6 +21,9 @@ OBJS := $(patsubst %.c,$(OUT)/%.o,$(SRCS))
 
 all: $(OUT)/GoldenSun3DS.3dsx
 
+# The pick screen shows the compile time (__DATE__ __TIME__): rebuild launcher.o whenever any other object changed so the stamp is the time of the latest build.
+$(OUT)/src/launcher.o: $(filter-out $(OUT)/src/launcher.o,$(OBJS))
+
 $(OUT)/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@

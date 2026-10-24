@@ -46,4 +46,6 @@ Goal of this release: find obvious problems. Everything below is new in a first 
 
 - Smoother top screen: the drawing thread now paints into private buffers and only waits for the display at the very end, so far fewer frames are dropped (the log showed a third of the top-screen frames being skipped).
 
+- The pick screen now shows the build time under the version number (and the Patch notes window shows when the patcher was built), so two installs of the same version can be told apart.
+
 **Known issues**: see the README ("Known limitations in this beta").
