@@ -22,6 +22,15 @@ Play **Golden Sun** and **Golden Sun: The Lost Age** on a Nintendo 3DS with a to
 
 If you only add one game, the other one is greyed out on the pick screen.
 
+## Playing in an emulator (Azahar)
+Build the `.3ds` with the patcher (tick **"Also make a .3ds file for emulators"**), open it in [Azahar](https://azahar-emu.org) and set the emulator to
+**New 3DS mode with the CPU clock at about 300%**. Sound needs no dump from a real 3DS: the app creates the placeholder file the audio library asks for.
+Full step-by-step guide, sound details and troubleshooting: **[docs/EMULATORS.md](docs/EMULATORS.md)**.
+
+> **Old 3DS and slow machines:** on an Old 3DS (or an emulator left at its default 100% CPU clock, which behaves like one) the game runs slower,
+> roughly 25-35 fps, and **the automatic helpers (frame skip, Mute if slow) may not be able to fix that**. The game then plays in slow motion and the sound
+> is slow and choppy. This is a limit of the hardware, not a bug, and fast forward is not offered for the same reason.
+
 ## What it does
 - **Bottom screen tabs**: Party (tap a member for the character screen), Psynergy, Djinn, Map, Items, Menu, plus an automatic Battle panel with enemy info and turn order.
 - **Touch actions through the game's own menus**: tap an item to equip it (with a stat-change preview), "Equip best", tap a Psynergy to cast it, tap a Djinn to Set / Standby it, Djinn **Sets** (save and apply layouts), **Repeat round** in battle, a Lost Age password keyboard.
@@ -31,6 +40,7 @@ If you only add one game, the other one is greyed out on the pick screen.
 Full details: [docs/FEATURES.md](docs/FEATURES.md).
 
 ## Known limitations in this beta
+- **Old 3DS, and emulators at their default speed, run slow.** Roughly 25-35 fps; automatic frame skip and **Mute if slow** may not be able to compensate (slow motion, choppy sound). See [docs/EMULATORS.md](docs/EMULATORS.md) for the emulator settings that fix it on a fast PC or phone.
 - **Speed depends on the console.** Old 3DS cannot reach full speed. Fast forward cannot go faster than your console can emulate; it is capped to keep the picture smooth. The Menu footer shows the real numbers (`e` = ms per emulated frame, `c` = CPU benchmark: about 30 means the New 3DS clock is active, about 90 means it is not).
 - **Golden Sun only** for: equip preview / Equip best, Djinn sets, the live map. The Lost Age has a partial info UI (see [docs/LOST_AGE.md](docs/LOST_AGE.md)).
 - **Lightly tested**: Repeat round, Djinn set Save / Apply / All Set, Equip best on real hardware. Android dual-screen devices have not been tested (only Azahar on Windows).

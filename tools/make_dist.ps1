@@ -22,11 +22,14 @@ GoldenSun3DS setup (v$ver $stage)
 3. Choose what to make: files for the SD card, or one installable .cia with your ROMs inside.
 4. Choose your own Golden Sun / The Lost Age ROM files and press Build. ROMs are not included.
 CIA: install it with FBI (or Azahar: File > Install CIA) and start it from the HOME Menu. Saves go to sdmc:/3ds/GoldenSun3DS/.
+Old 3DS: runs slower (about 25-35 fps) and the automatic helpers may not be able to fix it.
+Emulator (Azahar): make a .3ds with the patcher, turn on New 3DS mode and set the CPU clock to about 300%. No audio dump needed. See EMULATORS.txt.
 This is a beta: please report obvious problems (see the project page).
 "@ | Set-Content "$out\README.txt"
 "$ver $stage" | Set-Content "$out\version.txt"
 (Get-Date -Format "yyyy-MM-dd HH:mm") | Set-Content "$out\build.txt"
 Copy-Item "$root\CHANGELOG.md" "$out\PATCHNOTES.txt" -Force
+Copy-Item "$root\docs\EMULATORS.md" "$out\EMULATORS.txt" -Force
 Write-Output "wrote $out"
 
 $rel = Join-Path (Join-Path "$root\dist" "releases") "v$ver-$stage"

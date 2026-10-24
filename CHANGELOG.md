@@ -59,3 +59,6 @@ Goal of this release: find obvious problems. Everything below is new in a first 
 - The "Fast forward" and "FF speed" buttons are hidden from the Menu tab (a 3DS cannot emulate fast enough for them to help); holding Y / ZR still speeds up as far as the console allows. The Menu buttons are now two columns of five.
 
 **Known issues**: see the README ("Known limitations in this beta").
+
+- **Old 3DS note:** on an Old 3DS the game runs slower (roughly 25-35 fps) and the automatic helpers (frame skip, "Mute if slow") may not be able to fix that; expect slow motion and choppy sound. The same happens in an emulator left at its default CPU speed.
+- **Emulator guide** (`docs/EMULATORS.md`, also in the README): build a `.3ds` with the patcher, then in Azahar turn on New 3DS mode and set the CPU clock to about 300%. No audio dump from a real 3DS is needed (see the placeholder firmware above).
