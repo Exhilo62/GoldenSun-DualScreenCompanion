@@ -246,8 +246,8 @@ $rNew = New-Radio 'New 3DS / New 3DS XL / New 2DS XL   (two cores, targets 60 fp
 $rOld = New-Radio 'Old 3DS / 3DS XL / 2DS   (single core, about 25-30 fps)' 40 144 $false
 
 [void](New-Label '2.  What should it make?' 22 182 560 24 $text 11 $true)
-$rFolder = New-Radio 'Files for the SD card (Homebrew Launcher)' 40 210 $true
-$rCia = New-Radio 'One installable .cia with the ROMs inside (HOME Menu)' 40 238 $false
+$rFolder = New-Radio 'Files for the SD card (Homebrew Launcher, a 3ds folder)' 40 238 $false
+$rCia = New-Radio 'One installable .cia with the ROMs inside (HOME Menu)  - recommended' 40 210 $true
 
 [void](New-Label '3.  Where to put it' 22 276 560 24 $text 11 $true)
 $boxOut = New-Box 40 304 440
