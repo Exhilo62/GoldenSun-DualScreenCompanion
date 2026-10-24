@@ -25,6 +25,7 @@ Goal of this release: find obvious problems. Everything below is new in a first 
 **Patcher**
 - Double-click `GoldenSun3DS-Patcher.exe` to open it (a small launcher; `Install.bat` still works).
 - Shows the version and has a Patch notes button (this file).
+- Round "Mage's Arcane Gazette" badge in the top right corner.
 - Console and output type are chosen independently; the .cia is the default output.
 
 **Polish**

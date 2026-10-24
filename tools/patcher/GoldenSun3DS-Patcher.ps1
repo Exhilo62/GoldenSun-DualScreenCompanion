@@ -256,9 +256,18 @@ else {
         $verText = ([regex]::Match($h, 'APP_VERSION "([^"]+)"').Groups[1].Value + ' ' + [regex]::Match($h, 'APP_STAGE "([^"]+)"').Groups[1].Value).Trim()
     }
 }
-$lblVer = New-Label ("Version " + $verText) 380 54 220 22 $gold 10 $true
+$lblVer = New-Label ("Version " + $verText) 300 56 226 22 $gold 10 $true
 $lblVer.TextAlign = [System.Drawing.ContentAlignment]::MiddleRight
-$btnNotes = New-Button 'Patch notes' 490 18 110 30
+$btnNotes = New-Button 'Patch notes' 416 20 110 30
+# Round badge in the top right corner (badge.png sits next to this script in the release zip, or in assets\ in a source checkout).
+$badgeFile = Find-Asset 'badge.png'
+if ($badgeFile) {
+    $pic = New-Object System.Windows.Forms.PictureBox
+    $pic.Location = New-Object System.Drawing.Point(536, 8); $pic.Size = New-Object System.Drawing.Size(80, 80)
+    $pic.SizeMode = 'Zoom'; $pic.BackColor = [System.Drawing.Color]::Transparent
+    $pic.Image = [System.Drawing.Image]::FromFile($badgeFile)
+    $form.Controls.Add($pic)
+}
 $btnNotes.Add_Click({
     $nf = Find-File @("$here\PATCHNOTES.txt", "$here\..\..\CHANGELOG.md")
     $notes = if ($nf) { (Get-Content $nf -Raw) -replace "`r?`n", "`r`n" } else { 'No patch notes were found next to the patcher.' }
