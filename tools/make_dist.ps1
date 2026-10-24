@@ -23,6 +23,8 @@ GoldenSun3DS setup (v$ver $stage)
 CIA: install it with FBI (or Azahar: File > Install CIA) and start it from the HOME Menu. Saves go to sdmc:/3ds/GoldenSun3DS/.
 This is a beta: please report obvious problems (see the project page).
 "@ | Set-Content "$out\README.txt"
+"$ver $stage" | Set-Content "$out\version.txt"
+Copy-Item "$root\CHANGELOG.md" "$out\PATCHNOTES.txt" -Force
 Write-Output "wrote $out"
 
 $rel = Join-Path (Join-Path "$root\dist" "releases") "v$ver-$stage"

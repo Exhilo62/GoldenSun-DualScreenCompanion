@@ -245,7 +245,37 @@ function New-Group($x, $y, $w, $h) {
 }
 
 [void](New-Label 'GOLDEN SUN 3DS' 20 14 580 36 $gold 20 $true)
-[void](New-Label 'Pick your console, point to your own ROMs, and install.' 22 52 580 22 $dim 10 $false)
+# Version (version.txt sits next to this script in the release zip; a source checkout reads src\version.h) and the patch notes.
+$verText = 'dev build'
+$vf = Find-File @("$here\version.txt")
+if ($vf) { $verText = (Get-Content $vf -Raw).Trim() }
+else {
+    $vh = Find-File @("$here\..\..\src\version.h")
+    if ($vh) {
+        $h = Get-Content $vh -Raw
+        $verText = ([regex]::Match($h, 'APP_VERSION "([^"]+)"').Groups[1].Value + ' ' + [regex]::Match($h, 'APP_STAGE "([^"]+)"').Groups[1].Value).Trim()
+    }
+}
+$lblVer = New-Label ("Version " + $verText) 380 54 220 22 $gold 10 $true
+$lblVer.TextAlign = [System.Drawing.ContentAlignment]::MiddleRight
+$btnNotes = New-Button 'Patch notes' 490 18 110 30
+$btnNotes.Add_Click({
+    $nf = Find-File @("$here\PATCHNOTES.txt", "$here\..\..\CHANGELOG.md")
+    $notes = if ($nf) { (Get-Content $nf -Raw) -replace "`r?`n", "`r`n" } else { 'No patch notes were found next to the patcher.' }
+    $nfm = New-Object System.Windows.Forms.Form
+    $nfm.Text = 'GoldenSun3DS patch notes - version ' + $verText
+    $nfm.Size = New-Object System.Drawing.Size(640, 560); $nfm.StartPosition = 'CenterParent'
+    $nfm.BackColor = $navy; $nfm.ForeColor = $text; $nfm.FormBorderStyle = 'FixedDialog'; $nfm.MaximizeBox = $false; $nfm.MinimizeBox = $false
+    $tb = New-Object System.Windows.Forms.TextBox
+    $tb.Multiline = $true; $tb.ReadOnly = $true; $tb.ScrollBars = 'Vertical'; $tb.WordWrap = $true
+    $tb.Location = New-Object System.Drawing.Point(16, 16); $tb.Size = New-Object System.Drawing.Size(592, 496)
+    $tb.BackColor = $card; $tb.ForeColor = $text; $tb.BorderStyle = 'FixedSingle'; $tb.Font = New-Object System.Drawing.Font('Consolas', 9.5)
+    $tb.Text = $notes; $tb.SelectionStart = 0; $tb.SelectionLength = 0
+    $nfm.Controls.Add($tb)
+    [void]$nfm.ShowDialog($form)
+})
+
+[void](New-Label 'Pick your console, point to your own ROMs, and install.' 22 52 356 22 $dim 10 $false)
 
 [void](New-Label '1.  Which 3DS do you have?' 22 88 400 24 $text 11 $true)
 $grp1 = New-Group 22 112 600 66

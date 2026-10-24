@@ -22,4 +22,12 @@ Goal of this release: find obvious problems. Everything below is new in a first 
 - Autosave and resume (on by default), three save-state slots with thumbnails, rewind 5 s, rotating `.sav` backups.
 - Fast forward with frame cap, automatic frame skip when the console cannot hold full speed, non-blocking SD writes.
 
+**Patcher**
+- Shows the version and has a Patch notes button (this file).
+- Console and output type are chosen independently; the .cia is the default output.
+
+**Polish**
+- New logo and icon, octagonal gold coin in the footer, the Menu footer shows just the frame rate (details go to `perflog.txt` if you create that file next to the saves).
+- Equip best button redrawn with the larger font so letters are not cut off.
+
 **Known issues**: see the README ("Known limitations in this beta").
