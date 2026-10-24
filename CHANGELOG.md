@@ -53,4 +53,6 @@ Goal of this release: find obvious problems. Everything below is new in a first 
 
 - Fewer dropped top-screen frames: the drawing thread used to wait for the screen refresh whenever the last picture was swapped in less than 17 ms earlier, which at 60 fps is almost always, so it often lost a whole frame to waiting. It now predicts the refresh timing and only waits when it has to (the `w` figure in `perflog.txt` counts real waits).
 
+- The Menu footer now says why there is no sound: `(no audio)` when the audio system could not start, `(muted: slow)` when "Mute if slow" is silencing a device that cannot hold full speed.
+
 **Known issues**: see the README ("Known limitations in this beta").

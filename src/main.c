@@ -1275,6 +1275,10 @@ int main(void) {
 			if (slow) { autoSkip = true; skipOk = 0; }
 			else if (autoSkip && ++skipOk >= 30) { autoSkip = false; skipOk = 0; }   // after half a minute of full speed try full drawing again
 			slowNow = slow;
+			{   // say why there is no sound, if there is none: no audio device, or "Mute if slow" silencing a console that cannot hold full speed
+				const char* why = !hasSound ? "  (no audio)" : (ui.muteSlow && slow) ? "  (muted: slow)" : "";
+				snprintf(ui.perf, sizeof(ui.perf), "%.0f FPS%s", accGame * 268123000.0 / (double) (wall ? wall : 1), why);
+			}
 			accGame = 0; droppedDraws = 0;
 			for (int i = 0; i < 5; ++i) acc[i] = 0;
 			accFrames = 0; wallStart = t5;

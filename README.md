@@ -35,6 +35,7 @@ Full details: [docs/FEATURES.md](docs/FEATURES.md).
 - **Golden Sun only** for: equip preview / Equip best, Djinn sets, the live map. The Lost Age has a partial info UI (see [docs/LOST_AGE.md](docs/LOST_AGE.md)).
 - **Lightly tested**: Repeat round, Djinn set Save / Apply / All Set, Equip best on real hardware. Android dual-screen devices have not been tested (only Azahar on Windows).
 - **Sound safety net**: if audio start-up ever crashes a console, the next launch runs without sound instead of crashing again (a "Sound off" message shows); delete `sdmc:/3ds/GoldenSun3DS/audio_crash.flag` to try sound again. (The first .cia build crashed at game start on a New 3DS because the .cia did not declare the DSP memory range; fixed in the current build.)
+- **No sound in an emulator**: the app uses the 3DS DSP audio library, which needs the DSP firmware file `dspfirm.cdc` in `sdmc:/3ds/` (in Azahar: the `sdmc/3ds` folder of its user directory). Dump it from your own 3DS (for example with the DSP1 homebrew) and copy it there. The Menu tab footer shows `(no audio)` while sound is unavailable and `(muted: slow)` when **Mute if slow** is silencing a device that cannot hold full speed.
 - Autosave is on by default and resumes where you quit. Turn it off in **Menu** if you would rather start fresh.
 
 ## Build from source
