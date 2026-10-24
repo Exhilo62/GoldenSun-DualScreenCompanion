@@ -14,7 +14,7 @@ Play **Golden Sun** and **Golden Sun: The Lost Age** on a Nintendo 3DS with a to
 
 ## Install (easy way)
 1. Download `GoldenSun3DS_Patcher_v0.1.0-beta.zip` from the [latest release](../../releases) and unzip it.
-2. Double-click **Install.bat**.
+2. Double-click **GoldenSun3DS-Patcher.exe** (Windows may show a "Windows protected your PC" warning because the file is not code-signed: choose *More info > Run anyway*, or use **Install.bat** instead).
 3. Pick **New 3DS** (two cores, aims for 60 fps) or **Old 3DS** (single core, about 25-35 fps).
 4. Choose **.cia** (one installable file with your ROMs inside) or **SD card files**, pick your ROM(s) (optionally your `.sav` files) and press **Build**.
 5. Install the `.cia` with FBI (or in Azahar: *File > Install CIA*) and start it from the HOME Menu. Saves and settings live in `sdmc:/3ds/GoldenSun3DS/`.

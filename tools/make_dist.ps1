@@ -11,12 +11,13 @@ if ($strip) { & $strip -o "$out\GoldenSun3DS.elf" "$root\build\app\GoldenSun3DS.
 Copy-Item "$root\tools\patcher\GoldenSun3DS-Patcher.ps1", "$root\tools\patcher\Install.bat", "$root\tools\patcher\GoldenSun3DS.rsf" $out -Force
 Copy-Item "$root\assets\icon.png", "$root\assets\banner.png", "$root\assets\silence.wav" $out -Force
 Copy-Item "$root\tools\patcher\bin\*.exe" "$out\bin" -Force -ErrorAction SilentlyContinue
+& "$root\tools\patcher\MakeLauncher.ps1" -OutDir $out   # GoldenSun3DS-Patcher.exe, the double-click launcher
 $vh = Get-Content "$root\src\version.h" -Raw
 $ver = [regex]::Match($vh, 'APP_VERSION "([^"]+)"').Groups[1].Value
 $stage = [regex]::Match($vh, 'APP_STAGE "([^"]+)"').Groups[1].Value
 @"
 GoldenSun3DS setup (v$ver $stage)
-1. Double-click Install.bat.
+1. Double-click GoldenSun3DS-Patcher.exe (or Install.bat if the .exe is blocked).
 2. Pick New 3DS (two cores, 60 fps) or Old 3DS (single core, about 25-30 fps).
 3. Choose what to make: files for the SD card, or one installable .cia with your ROMs inside.
 4. Choose your own Golden Sun / The Lost Age ROM files and press Build. ROMs are not included.

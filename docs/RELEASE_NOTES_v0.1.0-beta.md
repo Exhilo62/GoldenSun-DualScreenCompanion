@@ -4,7 +4,7 @@ First public test build. **We are looking for obvious problems**, so please try 
 
 ### Install
 1. Download **GoldenSun3DS_Patcher_v0.1.0-beta.zip** below and unzip it.
-2. Run **Install.bat**, choose New 3DS or Old 3DS, choose `.cia` or SD files, pick your own Golden Sun / The Lost Age ROM(s) and press Build.
+2. Run **GoldenSun3DS-Patcher.exe** (or **Install.bat**; Windows may warn about an unsigned file, choose More info > Run anyway), choose New 3DS or Old 3DS, choose `.cia` or SD files, pick your own Golden Sun / The Lost Age ROM(s) and press Build.
 3. Install the `.cia` with FBI (or Azahar: File > Install CIA).
 
 No ROMs are included. You need your own dumps.

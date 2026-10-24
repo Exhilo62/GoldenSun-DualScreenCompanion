@@ -23,6 +23,7 @@ Goal of this release: find obvious problems. Everything below is new in a first 
 - Fast forward with frame cap, automatic frame skip when the console cannot hold full speed, non-blocking SD writes.
 
 **Patcher**
+- Double-click `GoldenSun3DS-Patcher.exe` to open it (a small launcher; `Install.bat` still works).
 - Shows the version and has a Patch notes button (this file).
 - Console and output type are chosen independently; the .cia is the default output.
 
