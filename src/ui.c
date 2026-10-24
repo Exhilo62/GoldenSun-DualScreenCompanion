@@ -69,15 +69,16 @@ static int logTotalHeight(void);
 #define SLOT_CARD_Y (CONTENT_Y + 30)
 #define SLOT_CARD_H 122
 
-// Menu tab buttons: two columns of five.
-enum { MB_FAST, MB_SPEED, MB_SLOTS, MB_AUTOSAVE, MB_MUTE, MB_SCALE, MB_HIDEMENU, MB_LOG, MB_BEST, MB_REWIND, MB_CLEARMAP, MB_COUNT };
-static const char* const menuLabels[MB_COUNT] = {"Fast forward", "FF speed", "Save slots", "Autosave", "Mute if slow", "Top screen", "Menus below", "Message log", "Bestiary", "Rewind 5s", "Clear map"};
+// Menu tab buttons: two columns of five. "Fast forward" and "FF speed" are hidden (a 3DS cannot emulate fast enough for them to be useful): they
+// are listed after MB_COUNT so they are neither drawn nor tapped; holding Y / ZR still speeds up as far as the console allows.
+enum { MB_SLOTS, MB_AUTOSAVE, MB_MUTE, MB_SCALE, MB_HIDEMENU, MB_LOG, MB_BEST, MB_REWIND, MB_CLEARMAP, MB_COUNT, MB_FAST, MB_SPEED };
+static const char* const menuLabels[MB_COUNT] = {"Save slots", "Autosave", "Mute if slow", "Top screen", "Menus below", "Message log", "Bestiary", "Rewind 5s", "Clear map"};
 #define MENU_W 150
-#define MENU_H 23
+#define MENU_H 28
 #define MENU_Y0 56
-#define MENU_STEP 25
-#define MENU_BX(i) (6 + ((i) / 6) * 158)
-#define MENU_BY(i) (MENU_Y0 + ((i) % 6) * MENU_STEP)
+#define MENU_STEP 30
+#define MENU_BX(i) (6 + ((i) / 5) * 158)
+#define MENU_BY(i) (MENU_Y0 + ((i) % 5) * MENU_STEP)
 
 static bool inRect(int px, int py, int x, int y, int w, int h) {
 	return px >= x && px < x + w && py >= y && py < y + h;

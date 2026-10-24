@@ -163,13 +163,13 @@ int main(int argc, char** argv) {
 	uiUpdate(&v, &st, false, 0, 0, &o);
 	uiUpdate(&v, &st, true, 280, 188, &o);
 	printf("mirror CLOSE -> closeMenu=%d (want 1)\n", o.closeMenu);
-	// Menu tab rows (two columns of four): autosave toggles, Save slots opens the cards, Message log opens the log.
+	// Menu tab buttons (two columns of five, Fast forward / FF speed hidden): autosave toggles, Save slots opens the cards, Message log opens the log.
 	v.mirror = false; v.tab = 5; v.showChar = false;
 	uiUpdate(&v, &st, false, 0, 0, &o);
-	uiUpdate(&v, &st, true, 50, 56 + 3 * 25 + 10, &o);
+	uiUpdate(&v, &st, true, 50, 56 + 1 * 30 + 10, &o);
 	printf("menu row Autosave -> auto=%d (want 0)\n", v.autoSave);
 	uiUpdate(&v, &st, false, 0, 0, &o);
-	uiUpdate(&v, &st, true, 50, 56 + 2 * 25 + 10, &o);
+	uiUpdate(&v, &st, true, 50, 56 + 0 * 30 + 10, &o);
 	printf("menu row Save slots -> showSlots=%d (want 1)\n", v.showSlots);
 	uiUpdate(&v, &st, false, 0, 0, &o);
 	uiUpdate(&v, &st, true, 6 + 104 + 26, 50 + 30 + 100, &o);   // slot 2 card, Save button
@@ -181,7 +181,7 @@ int main(int argc, char** argv) {
 	uiUpdate(&v, &st, true, 280, 50 + 12, &o);
 	printf("slots Back -> showSlots=%d (want 0)\n", v.showSlots);
 	uiUpdate(&v, &st, false, 0, 0, &o);
-	uiUpdate(&v, &st, true, 220, 56 + 1 * 25 + 10, &o);
+	uiUpdate(&v, &st, true, 220, 56 + 0 * 30 + 10, &o);
 	printf("menu row Message log -> showLog=%d (want 1)\n", v.showLog);
 	uiUpdate(&v, &st, false, 0, 0, &o);
 	uiUpdate(&v, &st, true, 160, 120, &o);
@@ -197,7 +197,7 @@ int main(int argc, char** argv) {
 		for (int i = 0; i < 3; ++i) { bs.enemies[i].present = true; snprintf(bs.enemies[i].name, sizeof(bs.enemies[i].name), "%s", nm[i]); bs.enemies[i].level = (uint8_t) (3 + i); bs.enemies[i].maxHp = (uint16_t) (20 + 10 * i); bs.enemies[i].atk = 9; bs.enemies[i].def = 5; bs.enemies[i].agi = 11; }
 		bestReset(); bestObserve(&bs);
 	}
-	uiUpdate(&v, &st, true, 220, 56 + 2 * 25 + 10, &o);
+	uiUpdate(&v, &st, true, 220, 56 + 1 * 30 + 10, &o);
 	printf("menu row Bestiary -> showBest=%d (want 1)\n", v.showBest);
 	uiUpdate(&v, &st, false, 0, 0, &o);
 	{ uiDraw(fb, &st, &v); char bp[512]; snprintf(bp, sizeof bp, "%sbest.ppm", argv[2]); writePpm(bp, fb); }
@@ -208,15 +208,17 @@ int main(int argc, char** argv) {
 	uiUpdate(&v, &st, true, 280, 50 + 12, &o);
 	printf("bestiary Back -> showBest=%d (want 0)\n", v.showBest);
 	uiUpdate(&v, &st, false, 0, 0, &o);
-	uiUpdate(&v, &st, true, 220, 56 + 3 * 25 + 10, &o);
+	uiUpdate(&v, &st, true, 220, 56 + 2 * 30 + 10, &o);
 	printf("menu row Rewind -> rewind=%d (want 1)\n", o.rewind);
-	// Speed controls: FF speed cycles 3x -> 4x -> 2x, Mute if slow toggles.
+	// Fast forward and FF speed are hidden: the first row is Save slots, and nothing changes the speed settings; Mute if slow still toggles.
 	v.tab = 5; v.showSlots = false; v.showLog = false;
+	{ int mul = v.speedMul; bool ff = v.fastForward;
+	  uiUpdate(&v, &st, false, 0, 0, &o);
+	  uiUpdate(&v, &st, true, 50, 56 + 0 * 30 + 10, &o);   // first row (Save slots opens the cards; it must not touch the speed)
+	  v.showSlots = false;
+	  printf("menu has no speed buttons -> unchanged=%d (want 1)\n", v.speedMul == mul && v.fastForward == ff); }
 	uiUpdate(&v, &st, false, 0, 0, &o);
-	uiUpdate(&v, &st, true, 50, 56 + 1 * 25 + 10, &o);
-	printf("menu row FF speed -> speedMul=%d (want 4)\n", v.speedMul);
-	uiUpdate(&v, &st, false, 0, 0, &o);
-	uiUpdate(&v, &st, true, 50, 56 + 4 * 25 + 10, &o);
+	uiUpdate(&v, &st, true, 50, 56 + 2 * 30 + 10, &o);
 	printf("menu row Mute if slow -> muteSlow=%d (want 1)\n", v.muteSlow);
 	// Password keyboard: Return key and a letter key.
 	v.showKeys = true; v.showChar = false; v.pickActive = false;

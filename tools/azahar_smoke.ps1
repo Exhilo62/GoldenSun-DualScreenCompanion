@@ -79,7 +79,7 @@ if ($Pick) {   # the game picker is up when both ROMs are present: A chooses Gol
 if ($LoadState) {
     # Bottom screen is ~2.45x at 1200x1300; origin (207,700) in window coordinates.
     Click ($wx + 273 + 130 * 5) ($wy + 761)                       # MENU tab
-    Click ($wx + 207 + [int](80 * 2.45)) ($wy + 700 + [int](117 * 2.45))    # Menu tab: Save slots (third button of the left column; six rows of 25 px from y=56)
+    Click ($wx + 207 + [int](80 * 2.45)) ($wy + 700 + [int](70 * 2.45))    # Menu tab: Save slots (first button of the left column; five rows of 30 px from y=56)
     Click ($wx + 207 + [int](80 * 2.45)) ($wy + 700 + [int](184 * 2.45))    # slot 1: Load
     if ($Tab -ge 0) { Click ($wx + 273 + 130 * $Tab) ($wy + 761) }   # chosen tab (0 Party .. 5 Menu); -Tab -1 leaves the app's own tab (e.g. the battle panel)
     Start-Sleep 3

@@ -55,4 +55,7 @@ Goal of this release: find obvious problems. Everything below is new in a first 
 
 - The Menu footer now says why there is no sound: `(no audio)` when the audio system could not start, `(muted: slow)` when "Mute if slow" is silencing a device that cannot hold full speed.
 
+- Sound in emulators without a 3DS audio dump: when the app runs in Azahar / Citra and finds no `dspfirm.cdc`, it writes a placeholder one (zeros) into the emulator's virtual SD and starts audio, because the emulator's built-in audio never reads it. Real consoles are never touched (the emulator is detected first).
+- The "Fast forward" and "FF speed" buttons are hidden from the Menu tab (a 3DS cannot emulate fast enough for them to help); holding Y / ZR still speeds up as far as the console allows. The Menu buttons are now two columns of five.
+
 **Known issues**: see the README ("Known limitations in this beta").

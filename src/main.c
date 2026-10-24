@@ -83,6 +83,13 @@ static void audioRateChanged(struct mAVStream* stream, unsigned rate) {
 // the call and removed after it: if it is still there at the next start the previous attempt crashed, so sound stays off instead of crashing again.
 #define AUDIO_FLAG_PATH "sdmc:/3ds/GoldenSun3DS/audio_crash.flag"
 static bool audioSkipped;
+#define DSPFIRM_PATH "sdmc:/3ds/dspfirm.cdc"
+
+// Citra-derived emulators (Azahar, Citra) answer this undocumented system-info query; a real console reports an error for it.
+static bool runningInEmulator(void) {
+	s64 v = 0;
+	return R_SUCCEEDED(svcGetSystemInfo(&v, 0x20000, 0));
+}
 
 static void initAudio(void) {
 	FILE* flag = fopen(AUDIO_FLAG_PATH, "rb");
@@ -90,6 +97,21 @@ static void initAudio(void) {
 	flag = fopen(AUDIO_FLAG_PATH, "wb");
 	if (flag) { fputs("audio start-up was in progress", flag); fclose(flag); }
 	Result rc = ndspInit();
+	if (R_FAILED(rc) && runningInEmulator()) {
+		// The audio library insists on a file named dspfirm.cdc, but an emulator's built-in (HLE) audio never looks inside it. So when there is no
+		// such file, write a placeholder (all zeros, no Nintendo data) into the emulator's virtual SD card and try once more. Never done on a console.
+		FILE* have = fopen(DSPFIRM_PATH, "rb");
+		if (have) { fclose(have); }
+		else {
+			FILE* ph = fopen(DSPFIRM_PATH, "wb");
+			if (ph) {
+				static const unsigned char zeros[0x4000];
+				fwrite(zeros, 1, sizeof(zeros), ph);
+				fclose(ph);
+				rc = ndspInit();
+			}
+		}
+	}
 	if (R_FAILED(rc)) {
 		remove(AUDIO_FLAG_PATH);   // it failed cleanly (for example no DSP firmware): not a crash
 		return;
