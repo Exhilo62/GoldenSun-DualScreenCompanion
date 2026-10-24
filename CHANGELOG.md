@@ -37,4 +37,6 @@ Goal of this release: find obvious problems. Everything below is new in a first 
 
 - Fewer stutters while walking: the map is saved to the SD card every 3 minutes (and on exit) instead of every 30 seconds, in 4 KB pieces with each slow file operation on its own frame.
 
+- The map file is now overwritten in place (no delete and rename, the slowest SD operations). With an empty `perflog.txt` next to the saves, every loop that takes longer than 45 ms is logged as a `SPIKE` line with where the time went (emulation, SD write, rewind, autosave).
+
 **Known issues**: see the README ("Known limitations in this beta").

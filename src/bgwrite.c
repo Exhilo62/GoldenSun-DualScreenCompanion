@@ -6,7 +6,7 @@
 
 #define SLICE 4096   // bytes written per frame: small enough that even a slow SD write costs only a few milliseconds
 
-typedef struct { char path[160]; uint8_t* data; size_t size; } Pending;
+typedef struct { char path[160]; uint8_t* data; size_t size; bool inPlace; } Pending;
 
 enum { ST_IDLE, ST_OPEN, ST_WRITE, ST_CLOSE, ST_REMOVE, ST_RENAME };
 
@@ -21,14 +21,17 @@ static bool curOk;
 
 static void ensureLock(void) { if (!lockInit) { LightLock_Init(&lock); lockInit = true; } }
 
-void bgWriteStart(const char* path, uint8_t* data, size_t size) {
+static void startJob(const char* path, uint8_t* data, size_t size, bool inPlace) {
 	ensureLock();
 	LightLock_Lock(&lock);
 	free(next.data);   // an older request that never started is superseded
 	snprintf(next.path, sizeof(next.path), "%s", path);
-	next.data = data; next.size = size;
+	next.data = data; next.size = size; next.inPlace = inPlace;
 	LightLock_Unlock(&lock);
 }
+
+void bgWriteStart(const char* path, uint8_t* data, size_t size) { startJob(path, data, size, false); }
+void bgWriteStartInPlace(const char* path, uint8_t* data, size_t size) { startJob(path, data, size, true); }
 
 static void tmpName(char* out, size_t n) { snprintf(out, n, "%s.tmp", cur.path); }
 
@@ -59,8 +62,8 @@ void bgWritePump(void) {
 		if (cur.data) { state = ST_OPEN; curOk = true; }
 		break;
 	case ST_OPEN:
-		tmpName(tmp, sizeof(tmp));
-		curFile = fopen(tmp, "wb");
+		if (cur.inPlace) { curFile = fopen(cur.path, "r+b"); if (!curFile) curFile = fopen(cur.path, "wb"); }
+		else { tmpName(tmp, sizeof(tmp)); curFile = fopen(tmp, "wb"); }
 		curDone = 0;
 		if (curFile) state = ST_WRITE; else done();
 		break;
@@ -74,6 +77,7 @@ void bgWritePump(void) {
 	case ST_CLOSE:
 		if (fclose(curFile) != 0) curOk = false;
 		curFile = NULL;
+		if (cur.inPlace) { done(); break; }
 		if (curOk) state = ST_REMOVE;
 		else { tmpName(tmp, sizeof(tmp)); remove(tmp); done(); }
 		break;

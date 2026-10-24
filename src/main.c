@@ -375,7 +375,10 @@ static int recN, lastN, recIdle;
 static bool recActive, recSaw, repeating;
 static double frameTicksEma;   // smoothed emulation cost of one GBA frame in system ticks (268 MHz)
 static bool ffActive;          // more than one frame per loop is running right now
-static bool autoSkip;     // the console is too slow for full speed: draw every other frame
+static bool perflogOn;     // perflog.txt exists (checked at start-up)
+static int spikeLogged;
+static u64 spPump, spRewind, spSave;   // this loop: SD write step / rewind snapshot / autosave snapshot, in ticks
+static bool autoSkip;    // the console is too slow for full speed: draw every other frame
 static unsigned skipPhase;
 
 static void roundFinalize(UiView* ui) {   // keep the recorded presses, dropping leading/trailing idle time and capping long waits
@@ -570,7 +573,7 @@ static void processJob(Job* j) {
 	if ((j->saveMap || j->finalSave) && mapDirty()) {   // serialise now (fast, in memory); the SD write happens in slices from the main loop
 		size_t n = 0;
 		uint8_t* buf = mapSerialize(&n);
-		if (buf) bgWriteStart(mapsPath, buf, n);
+		if (buf) bgWriteStartInPlace(mapsPath, buf, n);   // the map is expendable: overwrite in place, no delete / rename
 	}
 	j->tTop = t1 - t0; j->tMap = t2 - t1; j->tUi = svcGetSystemTick() - t2;
 }
@@ -636,6 +639,7 @@ int main(void) {
 	gsGamePath(game, "areas.txt", areasPath, sizeof(areasPath));
 	gsGamePath(game, "auto.ss", autoPath, sizeof(autoPath));
 	gsGamePath(game, "djinn.bin", djinnPath, sizeof(djinnPath));
+	{ FILE* pf = fopen(PERFLOG_PATH, "r"); if (pf) { fclose(pf); perflogOn = true; } }
 	gsSetGame(gi->name, gi->mapped);
 	gsSetRam(game == GS_GAME_2 ? &gsRamTla : &gsRamGs1);
 	gsAreasUseBuiltin(true);
@@ -1139,15 +1143,15 @@ int main(void) {
 			gs.playerX += camPreX - gs.camX; gs.playerY += camPreY - gs.camY;
 			gs.camX = camPreX; gs.camY = camPreY;
 		}
-		bgWritePump();   // one slice of any pending map / autosave write
+		{ u64 tp = svcGetSystemTick(); bgWritePump(); spPump = svcGetSystemTick() - tp; }   // one step of any pending map / autosave write
 		accGame += frames;
-		if (gi->mapped && (rewindTick += (unsigned) frames) >= 60) { rewindTick = 0; if (act.phase == 0) rewindPush(core); }
+		if (gi->mapped && (rewindTick += (unsigned) frames) >= 60) { rewindTick = 0; if (act.phase == 0) { u64 tr = svcGetSystemTick(); rewindPush(core); spRewind = svcGetSystemTick() - tr; } }
 		u64 t2 = svcGetSystemTick();
 		{ double perFrame = (double) (t2 - t1) / frames; frameTicksEma = frameTicksEma > 0 ? frameTicksEma * 0.9 + perFrame * 0.1 : perFrame; }
 		bool menuBit = gi->mapped && (memRead(core, gsRam()->menuFlags, 1) & GS_MENU_BIT) != 0 && (memRead(core, GS_REG_DISPCNT, 2) & 7) != 1;
 		if (menuBit) menuHold = 2; else if (menuHold > 0) --menuHold;  // the panels vanish a frame after the bit clears
 		bool menuNow = menuBit || menuHold > 0;
-		if (ui.autoSave && ++autoTimer >= 60 * 60 * 5 && !menuNow && gs.mode == GS_MODE_FIELD) { autoTimer = 0; writeStateAsync(core, autoPath); }   // every ~5 minutes in the field
+		if (ui.autoSave && ++autoTimer >= 60 * 60 * 5 && !menuNow && gs.mode == GS_MODE_FIELD) { autoTimer = 0; u64 ta = svcGetSystemTick(); writeStateAsync(core, autoPath); spSave = svcGetSystemTick() - ta; }   // every ~5 minutes in the field
 		bool saveMap = (++mapSaveTimer >= 10800 && !gs.menuOpen && gs.mode == GS_MODE_FIELD) || pendingSave;   // every ~3 minutes in the field (and on exit), only if the map changed
 		if (saveMap) { mapSaveTimer = 0; pendingSave = false; }
 
@@ -1212,6 +1216,15 @@ int main(void) {
 			else if (now > deadline + (u64) (268111856.0 / 59.7275) * 4) deadline = now;
 		}
 		u64 t5 = svcGetSystemTick();
+		if (perflogOn && t5 - t0 > 268123ull * 45 && spikeLogged < 300) {   // a loop longer than 45 ms: note where the time went
+			FILE* sl = fopen(PERFLOG_PATH, "a");
+			if (sl) {
+				fprintf(sl, "SPIKE total=%ums emu=%ums pump=%ums rewind=%ums autosave=%ums submit=%ums frames=%d mode=%d\n", (unsigned) ((t5 - t0) / 268123), (unsigned) ((t2 - t1) / 268123),
+					(unsigned) (spPump / 268123), (unsigned) (spRewind / 268123), (unsigned) (spSave / 268123), (unsigned) ((tw1 - tw0) / 268123), frames, (int) gs.mode);
+				fclose(sl); ++spikeLogged;
+			}
+		}
+		spPump = spRewind = spSave = 0;
 		acc[0] += t1 - t0; acc[1] += t2 - t1; acc[2] += tw1 - tw0; acc[3] += job.tTop + job.tMap; acc[4] += job.tUi;
 		if (++accFrames >= 60) {   // ticks run at 268.1 MHz: 268123 ticks per millisecond
 			u64 wall = t5 - wallStart;
@@ -1223,7 +1236,7 @@ int main(void) {
 			static int perfReports;
 			if (++perfReports % 10 == 0) {   // only when the player created perflog.txt: one line per ten seconds for real-console timing reports
 				FILE* pl = fopen(PERFLOG_PATH, "r");
-				if (pl) { fclose(pl); pl = fopen(PERFLOG_PATH, "a"); if (pl) { fprintf(pl, "%s mode=%d appFreeKB=%u linearFreeKB=%u\n", ui.perf, (int) gs.mode, (unsigned) (osGetMemRegionFree(MEMREGION_APPLICATION) / 1024), (unsigned) (linearSpaceFree() / 1024)); fclose(pl); } }
+				if (pl) { fclose(pl); pl = fopen(PERFLOG_PATH, "a"); if (pl) { fprintf(pl, "%s mode=%d appFreeKB=%u linearFreeKB=%u\n", perfFull, (int) gs.mode, (unsigned) (osGetMemRegionFree(MEMREGION_APPLICATION) / 1024), (unsigned) (linearSpaceFree() / 1024)); fclose(pl); } }
 			}
 			const bool slow = accGame * 268123000.0 / (double) (wall ? wall : 1) < 54.0 && !ffActive;
 			static int skipOk;
