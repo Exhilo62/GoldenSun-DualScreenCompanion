@@ -62,3 +62,4 @@ Goal of this release: find obvious problems. Everything below is new in a first 
 
 - **Old 3DS note:** on an Old 3DS the game runs slower (roughly 25-35 fps) and the automatic helpers (frame skip, "Mute if slow") may not be able to fix that; expect slow motion and choppy sound. The same happens in an emulator left at its default CPU speed.
 - **Emulator guide** (`docs/EMULATORS.md`, also in the README): build a `.3ds` with the patcher, then in Azahar turn on New 3DS mode and set the CPU clock to about 300%. No audio dump from a real 3DS is needed (see the placeholder firmware above).
+- **Roadmap** added (`docs/ROADMAP.md`): other devices are planned (desktop build, then a native Android app); until then the `.3ds` / `.cia` can be tried elsewhere, with no guarantees outside a New 3DS XL.
