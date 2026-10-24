@@ -530,6 +530,16 @@ static volatile bool workerQuit;
 static bool workerBusy;
 static bool swapPending;
 static u64 swapTick;
+static volatile int vbWaits;   // real vblank waits since the last statistics line (shown as w in perflog.txt)
+static u64 vbRef;   // system tick just after a vblank we waited for (0 = none yet)
+
+// True when a vblank (predicted from vbRef) fell between the two ticks.
+static bool vblankBetween(u64 from, u64 to) {
+	if (to <= from) return false;
+	const double period = 268111856.0 / 59.8261;
+	double a = ((double) from - (double) vbRef) / period, b = ((double) to - (double) vbRef) / period;
+	return floor(b) > floor(a);
+}
 
 static uint16_t jobFrame[256 * 160], jobTop[256 * 160];
 
@@ -596,7 +606,15 @@ static void workerMain(void* arg) {
 		svcInvalidateProcessDataCache(CUR_PROCESS_HANDLE, (u32) jobTop, sizeof(jobTop));
 		processJob(&job);   // paints into the private buffers: no waiting for the display here
 		// The previous swap only takes effect at a vblank and the framebuffer we are about to fill is the one still on screen until then.
-		if (swapPending && svcGetSystemTick() - swapTick < (u64) 268111 * 17) gspWaitForVBlank();   // a swap older than a frame has already landed
+		// Waiting for the next vblank costs up to a whole frame, so it is skipped when a vblank has certainly happened since the swap: the
+		// vblanks arrive every 4.48 M ticks (59.83 Hz) from a reference taken at the last real wait, and the reference is refreshed at least
+		// every two seconds. Without this the wait was taken on about half of the frames and made the job longer than a frame, so the main
+		// loop found the worker busy and dropped the next picture.
+		if (swapPending) {
+			u64 now = svcGetSystemTick();
+			bool landed = vbRef && now - vbRef < (u64) 268111 * 2000 && vblankBetween(swapTick + 268111 * 3, now - 268111 * 2);
+			if (!landed) { gspWaitForVBlank(); vbRef = svcGetSystemTick(); ++vbWaits; }
+		}
 		presentFrame();
 		gfxFlushBuffers();
 		gfxSwapBuffers();
@@ -1240,8 +1258,9 @@ int main(void) {
 			u64 wall = t5 - wallStart;
 			const double tpm = 268123.0 * accFrames;
 			char perfFull[96];   // the detailed line goes to perflog.txt (when it exists); the Menu footer shows only the frame rate
-			snprintf(perfFull, sizeof(perfFull), "%.0ffps%s game%.0f e%.1f d%d t%.1f u%.1f c%u%s", accFrames * 268123000.0 / (double) (wall ? wall : 1), worker ? " 2c" : "",
-				accGame * 268123000.0 / (double) (wall ? wall : 1), (double) acc[1] / tpm, droppedDraws, (double) acc[3] / tpm, (double) acc[4] / tpm, cpuMs, autoSkip ? " sk" : "");
+			snprintf(perfFull, sizeof(perfFull), "%.0ffps%s game%.0f e%.1f d%d t%.1f u%.1f w%d c%u%s", accFrames * 268123000.0 / (double) (wall ? wall : 1), worker ? " 2c" : "",
+				accGame * 268123000.0 / (double) (wall ? wall : 1), (double) acc[1] / tpm, droppedDraws, (double) acc[3] / tpm, (double) acc[4] / tpm, vbWaits, cpuMs, autoSkip ? " sk" : "");
+			vbWaits = 0;
 			snprintf(ui.perf, sizeof(ui.perf), "%.0f FPS", accGame * 268123000.0 / (double) (wall ? wall : 1));
 			static int perfReports;
 			if (perflogOn && ++perfReports % 10 == 0) {   // only when the player created perflog.txt: one line per ten seconds for real-console timing reports
