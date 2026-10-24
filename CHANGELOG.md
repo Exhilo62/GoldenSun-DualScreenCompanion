@@ -26,6 +26,7 @@ Goal of this release: find obvious problems. Everything below is new in a first 
 - Double-click `GoldenSun3DS-Patcher.exe` to open it (a small launcher; `Install.bat` still works).
 - Shows the version and has a Patch notes button (this file).
 - Round "Mage's Arcane Gazette" badge in the top right corner.
+- "Also make a .3ds file for emulators" (with the .cia output): writes a cartridge image (`.3ds`) next to the .cia that Azahar and similar emulators open directly. It does not run on a real console. Command line: `-Make3ds`.
 - Console and output type are chosen independently; the .cia is the default output.
 
 **Polish**

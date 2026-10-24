@@ -15,7 +15,8 @@ param(
     [string]$Rom1 = '',
     [string]$Rom2 = '',
     [string]$Save1 = '',
-    [string]$Save2 = ''
+    [string]$Save2 = '',
+    [switch]$Make3ds   # CLI (CIA output): also write a .3ds cartridge image next to the .cia, for emulators such as Azahar
 )
 $ErrorActionPreference = 'Stop'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -144,7 +145,7 @@ function Install-Folder([string]$console, [string]$sd, [string]$rom1, [string]$r
     return $log
 }
 
-function Build-Cia([string]$console, [string]$cia, [string]$rom1, [string]$rom2, [string]$save1, [string]$save2) {
+function Build-Cia([string]$console, [string]$cia, [string]$rom1, [string]$rom2, [string]$save1, [string]$save2, [bool]$make3ds = $false) {
     $makerom = Find-Tool 'makerom'
     $bannertool = Find-Tool 'bannertool'
     if (-not $makerom -or -not $bannertool) { throw 'makerom.exe and bannertool.exe are needed for a CIA: put them in a "bin" folder next to this script (or on PATH).' }
@@ -176,6 +177,12 @@ function Build-Cia([string]$console, [string]$cia, [string]$rom1, [string]$rom2,
         if ($LASTEXITCODE -or -not (Test-Path $cia)) { throw ("makerom failed:`n" + ($mr -join "`n")) }
         $mb = [math]::Round((Get-Item $cia).Length / 1MB, 1)
         $log.Add("CIA: $cia ($mb MB)")
+        if ($make3ds) {   # the same program as a cartridge image (.3ds), which emulators open directly; not for a real console
+            $c3 = [System.IO.Path]::ChangeExtension($cia, '.3ds')
+            $mr3 = & $makerom -f cci -o $c3 -target t -exefslogo -rsf $rsf -elf $elf -banner "$work\banner.bnr" -icon "$work\icon.smdh" "-DAPP_ROMFS=$romfs" -major 1 -minor 0 -micro 0 2>&1
+            if ($LASTEXITCODE -or -not (Test-Path $c3)) { throw ("makerom could not make the .3ds:`n" + ($mr3 -join "`n")) }
+            $log.Add("3DS image: $c3 ($([math]::Round((Get-Item $c3).Length / 1MB, 1)) MB) - open it in an emulator such as Azahar (File > Open); it does not run on a console")
+        }
         $log.Add('Install it with FBI on the console (or File > Install CIA in Azahar), then start GoldenSun3DS from the HOME Menu.')
         $log.Add('Saves and settings go to sdmc:/3ds/GoldenSun3DS/ on the SD card.')
         if ($save1 -or $save2) {
@@ -187,7 +194,7 @@ function Build-Cia([string]$console, [string]$cia, [string]$rom1, [string]$rom2,
 }
 
 if ($NoGui) {
-    if ($Output -eq 'cia') { Build-Cia $Console $CiaPath $Rom1 $Rom2 $Save1 $Save2 | ForEach-Object { Write-Output $_ } }
+    if ($Output -eq 'cia') { Build-Cia $Console $CiaPath $Rom1 $Rom2 $Save1 $Save2 $Make3ds | ForEach-Object { Write-Output $_ } }
     else { Install-Folder $Console $SdRoot $Rom1 $Rom2 $Save1 $Save2 | ForEach-Object { Write-Output $_ } }
     return
 }
@@ -298,7 +305,11 @@ $grp2 = New-Group 22 206 600 62
 $rFolder = New-Radio 'Files for the SD card (Homebrew Launcher, a 3ds folder)' 18 32 $false $grp2
 $rCia = New-Radio 'One installable .cia with the ROMs inside (HOME Menu)  - recommended' 18 4 $true $grp2
 
-[void](New-Label '3.  Where to put it' 22 276 560 24 $text 11 $true)
+[void](New-Label '3.  Where to put it' 22 276 300 24 $text 11 $true)
+$chk3ds = New-Object System.Windows.Forms.CheckBox
+$chk3ds.Text = 'Also make a .3ds file for emulators'; $chk3ds.Location = New-Object System.Drawing.Point(330, 277); $chk3ds.Size = New-Object System.Drawing.Size(290, 26)
+$chk3ds.ForeColor = $text; $chk3ds.BackColor = $navy
+$form.Controls.Add($chk3ds)
 $boxOut = New-Box 40 304 440
 $btnOut = New-Button 'Browse...' 490 302 110 30
 $btnOut.Add_Click({
@@ -312,7 +323,7 @@ $btnOut.Add_Click({
         if ($d.ShowDialog() -eq 'OK') { $boxOut.Text = $d.SelectedPath }
     }
 })
-$rCia.Add_CheckedChanged({ $boxOut.Text = '' })
+$rCia.Add_CheckedChanged({ $boxOut.Text = ''; $chk3ds.Enabled = $rCia.Checked; if (-not $rCia.Checked) { $chk3ds.Checked = $false } })
 
 function Add-RomRow($label, $y) {
     [void](New-Label $label 22 $y 560 24 $text 11 $true)
@@ -346,7 +357,7 @@ $btnGo.Add_Click({
     $btnGo.Enabled = $false
     try {
         $console = if ($rOld.Checked) { 'old' } else { 'new' }
-        if ($rCia.Checked) { $lines = Build-Cia $console $boxOut.Text.Trim() $boxR1.Text.Trim() $boxR2.Text.Trim() $boxS1.Text.Trim() $boxS2.Text.Trim() }
+        if ($rCia.Checked) { $lines = Build-Cia $console $boxOut.Text.Trim() $boxR1.Text.Trim() $boxR2.Text.Trim() $boxS1.Text.Trim() $boxS2.Text.Trim() $chk3ds.Checked }
         else { $lines = Install-Folder $console $boxOut.Text.Trim() $boxR1.Text.Trim() $boxR2.Text.Trim() $boxS1.Text.Trim() $boxS2.Text.Trim() }
         $logBox.Text = ($lines -join "`r`n")
     } catch {
