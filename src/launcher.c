@@ -88,6 +88,8 @@ static void paintGameCard(int x, int y, int w, int h, bool sel, bool last, bool 
 	gPanel(x, y, w, h, sel ? L_ACTIVE_T : L_PANEL_T, sel ? L_ACTIVE_B : L_PANEL_B, sel ? L_GOLD : L_GOLD_DIM);
 	gSprite(fx, fy, face);
 	gSprite(lx, ly, logo);
+	static const char* const party[2][4] = {{"Isaac", "Garet", "Ivan", "Mia"}, {"Felix", "Jenna", "Sheba", "Piers"}};
+	for (int i = 0; i < 4; ++i) gTextCentered(x + w - 40, y + 25 + i * 11, party[game ? 1 : 0][i], 0, sel ? L_GOLD : L_DIM);   // the party, under the LAST PLAYED tag
 	if (last) {
 		gPill(x + w - 74, y + 6, 68, 14, L_CARD_T, L_CARD_B, L_GOLD_DIM);
 		gTextCentered(x + w - 40, y + 9, "LAST PLAYED", 0, L_GOLD);
