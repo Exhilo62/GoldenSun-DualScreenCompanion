@@ -12,6 +12,7 @@ void bgWriteStart(const char* path, uint8_t* malloced, size_t size);   // takes 
 // In-place variant for files whose loss or damage is harmless (the explored map): the existing file is overwritten without being deleted and
 // renamed. The file may keep stale bytes after the new data if it got shorter.
 void bgWriteStartInPlace(const char* path, uint8_t* malloced, size_t size);
+void bgWriteAppend(const char* path, uint8_t* malloced, size_t size);   // appends to the file (log lines); never replaces a queued job
 void bgWritePump(void);                                                  // kept for older callers: the thread does the work now
 void bgWriteFlush(void);                                                 // waits until everything is on the card (use at exit)
 bool bgWriteBusy(void);

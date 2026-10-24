@@ -48,4 +48,6 @@ Goal of this release: find obvious problems. Everything below is new in a first 
 
 - The pick screen now shows the build time under the version number (and the Patch notes window shows when the patcher was built), so two installs of the same version can be told apart.
 
+- The `perflog.txt` lines are now also written by the background thread, and each SPIKE line splits the time into input/state (`pre`), emulation, the rest of the frame (`mid`), submit and the pacing sleep.
+
 **Known issues**: see the README ("Known limitations in this beta").

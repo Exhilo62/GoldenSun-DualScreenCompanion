@@ -371,7 +371,7 @@ static double frameTicksEma;   // smoothed emulation cost of one GBA frame in sy
 static bool ffActive;          // more than one frame per loop is running right now
 static bool perflogOn;     // perflog.txt exists (checked at start-up)
 static int spikeLogged;
-static u64 spPump, spRewind, spSave;   // this loop: SD write step / rewind snapshot / autosave snapshot, in ticks
+static u64 spPump, spRewind, spSave, spSleep;   // this loop: SD write step / rewind snapshot / autosave snapshot, in ticks
 static bool autoSkip;    // the console is too slow for full speed: draw every other frame
 static unsigned skipPhase;
 
@@ -1220,19 +1220,21 @@ int main(void) {
 		if (worker) {   // pace the emulation to the GBA's 59.73 Hz: sleep only when ahead of schedule
 			deadline += (u64) (268111856.0 / 59.7275);
 			u64 now = svcGetSystemTick();
-			if (now + 4000 < deadline) svcSleepThread((s64) ((deadline - now) * 1000 / 268));
+			if (now + 4000 < deadline) { svcSleepThread((s64) ((deadline - now) * 1000 / 268)); spSleep = svcGetSystemTick() - now; }
 			else if (now > deadline + (u64) (268111856.0 / 59.7275) * 4) deadline = now;
 		}
 		u64 t5 = svcGetSystemTick();
 		if (perflogOn && t5 - t0 > 268123ull * 45 && spikeLogged < 300) {   // a loop longer than 45 ms: note where the time went
-			FILE* sl = fopen(PERFLOG_PATH, "a");
+			char* sl = malloc(200);   // written by the background thread: the log itself must not stall the loop
 			if (sl) {
-				fprintf(sl, "SPIKE total=%ums emu=%ums pump=%ums rewind=%ums autosave=%ums submit=%ums frames=%d mode=%d\n", (unsigned) ((t5 - t0) / 268123), (unsigned) ((t2 - t1) / 268123),
-					(unsigned) (spPump / 268123), (unsigned) (spRewind / 268123), (unsigned) (spSave / 268123), (unsigned) ((tw1 - tw0) / 268123), frames, (int) gs.mode);
-				fclose(sl); ++spikeLogged;
+				int n = snprintf(sl, 200, "SPIKE total=%ums pre=%ums emu=%ums mid=%ums submit=%ums sleep=%ums rewind=%ums autosave=%ums frames=%d mode=%d\n", (unsigned) ((t5 - t0) / 268123),
+					(unsigned) ((t1 - t0) / 268123), (unsigned) ((t2 - t1) / 268123), (unsigned) ((tw0 - t2) / 268123), (unsigned) ((tw1 - tw0) / 268123), (unsigned) (spSleep / 268123),
+					(unsigned) (spRewind / 268123), (unsigned) (spSave / 268123), frames, (int) gs.mode);
+				bgWriteAppend(PERFLOG_PATH, (uint8_t*) sl, (size_t) (n > 0 && n < 200 ? n : 0));
+				++spikeLogged;
 			}
 		}
-		spPump = spRewind = spSave = 0;
+		spPump = spRewind = spSave = spSleep = 0;
 		acc[0] += t1 - t0; acc[1] += t2 - t1; acc[2] += tw1 - tw0; acc[3] += job.tTop + job.tMap; acc[4] += job.tUi;
 		if (++accFrames >= 60) {   // ticks run at 268.1 MHz: 268123 ticks per millisecond
 			u64 wall = t5 - wallStart;
@@ -1242,9 +1244,12 @@ int main(void) {
 				accGame * 268123000.0 / (double) (wall ? wall : 1), (double) acc[1] / tpm, droppedDraws, (double) acc[3] / tpm, (double) acc[4] / tpm, cpuMs, autoSkip ? " sk" : "");
 			snprintf(ui.perf, sizeof(ui.perf), "%.0f FPS", accGame * 268123000.0 / (double) (wall ? wall : 1));
 			static int perfReports;
-			if (++perfReports % 10 == 0) {   // only when the player created perflog.txt: one line per ten seconds for real-console timing reports
-				FILE* pl = fopen(PERFLOG_PATH, "r");
-				if (pl) { fclose(pl); pl = fopen(PERFLOG_PATH, "a"); if (pl) { fprintf(pl, "%s mode=%d appFreeKB=%u linearFreeKB=%u\n", perfFull, (int) gs.mode, (unsigned) (osGetMemRegionFree(MEMREGION_APPLICATION) / 1024), (unsigned) (linearSpaceFree() / 1024)); fclose(pl); } }
+			if (perflogOn && ++perfReports % 10 == 0) {   // only when the player created perflog.txt: one line per ten seconds for real-console timing reports
+				char* pl = malloc(200);
+				if (pl) {
+					int n = snprintf(pl, 200, "%s mode=%d appFreeKB=%u linearFreeKB=%u\n", perfFull, (int) gs.mode, (unsigned) (osGetMemRegionFree(MEMREGION_APPLICATION) / 1024), (unsigned) (linearSpaceFree() / 1024));
+					bgWriteAppend(PERFLOG_PATH, (uint8_t*) pl, (size_t) (n > 0 && n < 200 ? n : 0));
+				}
 			}
 			const bool slow = accGame * 268123000.0 / (double) (wall ? wall : 1) < 54.0 && !ffActive;
 			static int skipOk;
