@@ -35,6 +35,7 @@ typedef struct {
 void mapInit(void);
 void mapUpdate(const uint16_t* video, size_t stride, const GsState* st);
 const MapSlot* mapCurrent(void);
+bool mapRomActive(void);   // the current area is drawn from the cartridge's own map data (mapdecode.c) instead of the stitched mosaic
 unsigned mapVersion(void);  // increments whenever the mosaic changed
 void mapClearCurrent(void);
 // Forget the previous area so a jump (loading a state) is not recorded as a door.

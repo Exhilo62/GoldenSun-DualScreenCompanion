@@ -58,11 +58,12 @@ def main():
     print('== build')
     ok = build('stateprobe.exe', ['tools/stateprobe.c', 'src/gs_state.c'])
     ok &= build('navtest.exe', ['tools/navtest.c', 'src/menunav.c', 'src/gs_state.c'])
-    ok &= build('maptest.exe', ['tools/maptest.c', 'src/mapview.c', 'src/gfx.c', 'src/font_data.c', 'src/art.c', 'src/art_data.c', 'src/logo_data.c', 'src/icon_data.c', 'src/mapicon_data.c', 'src/gs_areas.c', 'src/gs_state.c'])
-    ok &= build('ui_preview.exe', ['tools/ui_preview.c', 'src/ui.c', 'src/gfx.c', 'src/font_data.c', 'src/art.c', 'src/art_data.c', 'src/logo_data.c', 'src/icon_data.c', 'src/mapicon_data.c', 'src/mapview.c', 'src/menunav.c', 'src/gs_state.c', 'src/gs_areas.c', 'src/gs_items.c', 'src/gs_abilities.c', 'src/bestiary.c', 'src/gs_djinn.c', 'src/dialoglog.c', 'src/gs_field.c', 'src/gs_classes.c', 'src/gs_itemdesc.c'],
+    ok &= build('maptest.exe', ['tools/maptest.c', 'src/mapview.c', 'src/mapdecode.c', 'src/gfx.c', 'src/font_data.c', 'src/art.c', 'src/art_data.c', 'src/logo_data.c', 'src/icon_data.c', 'src/mapicon_data.c', 'src/gs_areas.c', 'src/gs_state.c'])
+    ok &= build('ui_preview.exe', ['tools/ui_preview.c', 'src/ui.c', 'src/gfx.c', 'src/font_data.c', 'src/art.c', 'src/art_data.c', 'src/logo_data.c', 'src/icon_data.c', 'src/mapicon_data.c', 'src/mapview.c', 'src/mapdecode.c', 'src/menunav.c', 'src/gs_state.c', 'src/gs_areas.c', 'src/gs_items.c', 'src/gs_abilities.c', 'src/bestiary.c', 'src/gs_djinn.c', 'src/dialoglog.c', 'src/gs_field.c', 'src/gs_classes.c', 'src/gs_itemdesc.c'],
                 host_mgba=False)
     ok &= build('dlog_test.exe', ['tools/dlog_test.c', 'src/dialoglog.c'], host_mgba=False)
     ok &= build('best_test.exe', ['tools/best_test.c', 'src/bestiary.c'], host_mgba=False)
+    ok &= build('mapdecode_test.exe', ['tools/mapdecode_test.c', 'src/mapdecode.c'], host_mgba=False)
     if not ok:
         print('build failed')
         return 1
@@ -172,6 +173,17 @@ def main():
             n += 1
             check('bestiary: ' + line.split(' ', 1)[1], line.startswith('ok '))
     check('bestiary test ran', n >= 10, out[-200:])
+
+    print('== map drawing from the ROM')
+    out = run('mapdecode_test.exe', os.path.join(B, 'gs.gba'), -1, 'x')
+    check('every map id decodes', '205 of 205 ok' in out, out[-200:])
+    check('Vale is 240x752 half-res pixels', ' 3:240x752 ' in out or out.startswith('3:240x752 '), out[:200])
+    out = run('mapdecode_test.exe', os.path.join(B, 'gs.gba'), 3, os.path.join(B, 'c_map3.u16'))
+    check('Vale canvas written', 'canvas 240x752' in out, out)
+    import struct as _st
+    d = open(os.path.join(B, 'c_map3.u16'), 'rb').read()
+    px = _st.unpack_from('<%dH' % (240 * 752), d, 8)
+    check('Vale canvas is fully painted', sum(1 for v in px if v) > 240 * 752 * 0.99)
 
     print('== UI self-tests')
     out = run('ui_preview.exe', os.path.join(B, 'far.bin'), os.path.join(B, 'uit'))

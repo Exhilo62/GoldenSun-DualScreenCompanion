@@ -26,6 +26,7 @@
 #include "art.h"
 #include "gs_areas.h"
 #include "mapview.h"
+#include "mapdecode.h"
 #include "bgwrite.h"
 #include "menunav.h"
 #include "ui.h"
@@ -754,6 +755,7 @@ int main(void) {
 	}
 	bgWriteInit(worker ? 2 : -1);   // SD writes run on their own low-priority thread
 	mapInit();
+	{ struct GBA* gb = core->board; if (game == GS_GAME_1) mdInit((const uint8_t*) gb->memory.rom, gb->memory.romSize); else mdInit(NULL, 0); }   // draw maps from the ROM when its tables are recognised
 	gsAreasLoad(areasPath);
 	mapLoad(mapsPath);
 	bestLoad(bestPath);
@@ -788,6 +790,7 @@ int main(void) {
 		touchPosition touch = {0, 0};
 		if (held & KEY_TOUCH) hidTouchRead(&touch);
 		gsReadState(&gs, memRead, core);
+		gs.bldcnt = ((struct GBA*) core->board)->memory.io[0x50 >> 1];
 		bestObserve(&gs);
 		if (bestTakeSave()) { size_t bn = 0; uint8_t* bb = bestSerialize(&bn); if (bb) bgWriteStart(bestPath, bb, bn); }   // a few KB, written once when a battle that added something ends
 		{   // The depth byte reads 0 for a single frame every ~24 frames while a command bar is up: only believe a list after 3 frames in a row.

@@ -6,6 +6,7 @@
 #include "gfx.h"
 #include "gs_areas.h"
 #include "mapview.h"
+#include "mapdecode.h"
 #include "art.h"
 
 #define C_LABEL_EDGE RGB(210, 165, 60)
@@ -88,9 +89,44 @@ static bool hudVisible(const uint16_t* v, size_t stride) {
 	return teal(v[10 * stride + 160]) && teal(v[28 * stride + 220]);
 }
 
+// ROM mode: when the cartridge's map tables are recognised the whole area is drawn from the ROM (mapdecode.c) and nothing is stitched.
+static bool romMode;
+static int romId = -1;      // map id the ROM canvas was made for (-1 = none yet)
+static int romSkipPend;     // frames the blend setting disagreed with the drawn canvas
+static int romPx, romPy;    // canvas coordinates of the player marker
+
+bool mapRomActive(void) { return romMode; }
+
+static void romEnter(const GsState* st, int psx, int psy) {
+	bool skip = ((st->bldcnt >> 6) & 3) == 1 && (st->bldcnt & 2);   // the game alpha blends BG1 (a glow layer in houses): leave it out
+	romMode = mdEnter(st->areaGroup, st->bgx3, st->bgy3, psx, psy, skip);
+	romSkipPend = 0;
+	++version;
+}
+
 void mapUpdate(const uint16_t* video, size_t stride, const GsState* st) {
 	if (st->mode != GS_MODE_FIELD) return;
 	if (st->areaGroup != 2 && st->playerX == 0 && st->playerY == 0) return;  // transition frames (map 0x1FE etc.)
+	if (mdAvailable() && st->bgOk && st->areaGroup != 2) {
+		int psx = st->hasSprite ? st->sprX + 16 : 120, psy = st->hasSprite ? st->sprY + 26 : 90;
+		if (st->areaGroup != romId) {
+			romId = st->areaGroup;
+			romEnter(st, psx, psy);
+		} else if (romMode) {
+			bool skip = ((st->bldcnt >> 6) & 3) == 1 && (st->bldcnt & 2);
+			if (skip != mdCurrent()->skipLayer2) { if (++romSkipPend >= 20) romEnter(st, psx, psy); } else romSkipPend = 0;
+		}
+		if (romMode) {
+			const MdMap* m = mdCurrent();
+			romPx = (st->bgx3 - m->l0x + psx - m->originX) / 2;
+			romPy = (st->bgy3 - m->l0y + psy - m->originY) / 2;
+			++version;
+			return;
+		}
+	} else {
+		romMode = false;
+		if (st->areaGroup == 2) romId = -1;
+	}
 	// A new map id means the player went through a door: mark it on both sides.
 	if (st->areaGroup != lastId) {
 		if (lastId && exitSlot && lastId != 2) addPoi(exitSlot, exitSlot->playerX, exitSlot->playerY, st->areaGroup);
@@ -339,9 +375,43 @@ static void drawPoi(int X, int Y, bool near) {
 }
 
 
+static void drawPlayerMarker(int vx, int vy, int mx, int my) {
+	int X = vx + mx, Y = vy + my;
+	uint16_t gold = RGB(255, 214, 80), dark = RGB(20, 12, 4);
+	for (int dy = -6; dy <= 6; ++dy) {   // dark outline diamond, then gold diamond on top
+		int w = 6 - abs(dy);
+		for (int k = -w; k <= w; ++k) gPx(X + k, Y + dy, dark);
+	}
+	for (int dy = -4; dy <= 4; ++dy) {
+		int w = 4 - abs(dy);
+		for (int k = -w; k <= w; ++k) gPx(X + k, Y + dy, gold);
+	}
+	gPx(X, Y, RGB(255, 255, 255));
+}
+
+static void mapDrawRom(int vx, int vy, int vw, int vh, int zoom, int panX, int panY) {
+	const MdMap* m = mdCurrent();
+	int zs = zoom == 2 ? 2 : 1;
+	int cx = romPx + panX, cy = romPy + panY;
+	int left = cx - (vw * zs) / 2, top = cy - (vh * zs) / 2;
+	for (int i = 0; i < vw; ++i) {
+		int mx = left + i * zs;
+		bool inx = (unsigned) mx < (unsigned) m->w;
+		uint16_t* col = gPixelPtr(vx + i, vy);
+		for (int j = 0; j < vh; ++j) {
+			int my = top + j * zs;
+			uint16_t c = (inx && (unsigned) my < (unsigned) m->h) ? m->px[my * m->w + mx] : 0;
+			col[-j] = c ? c : unexp[i * vh + j];
+		}
+	}
+	int mx = (romPx - left) / zs, my = (romPy - top) / zs;
+	if (mx >= 2 && mx < vw - 2 && my >= 2 && my < vh - 2) drawPlayerMarker(vx, vy, mx, my);
+}
+
 void mapDraw(int vx, int vy, int vw, int vh, int zoom, int panX, int panY) {
 	const MapSlot* s = cur;
 	if (unexpW != vw || unexpH != vh) buildUnexplored(vw, vh);
+	if (romMode && mdCurrent()) { mapDrawRom(vx, vy, vw, vh, zoom, panX, panY); return; }
 	if (!s || s->maxX < 0) {
 		for (int i = 0; i < vw; ++i) {
 			uint16_t* col = gPixelPtr(vx + i, vy);

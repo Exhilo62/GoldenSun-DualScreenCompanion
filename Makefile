@@ -16,7 +16,7 @@ CFLAGS  := -MMD -MP -O2 -g -Wall -Wno-format -ffunction-sections -mword-relocati
 LDFLAGS := -specs=3dsx.specs -Wl,--gc-sections $(ARCH) -L$(DEVKITPRO)/libctru/lib
 LIBS    := $(MGBALIB)/libmgba.a $(MGBALIB)/zlib/libzlibstatic.a -lctru -lm
 
-SRCS := src/main.c src/ui.c src/gfx.c src/font_data.c src/art.c src/art_data.c src/logo_data.c src/icon_data.c src/mapicon_data.c src/mapview.c src/menunav.c src/gs_state.c src/gs_game.c src/gs_areas.c src/gs_items.c src/gs_abilities.c src/gs_djinn.c src/bestiary.c src/launcher.c src/gs_classes.c src/gs_itemdesc.c src/gs_field.c src/dialoglog.c src/bgwrite.c $(MGBA)/src/platform/3ds/ctru-heap.c
+SRCS := src/main.c src/ui.c src/gfx.c src/font_data.c src/art.c src/art_data.c src/logo_data.c src/icon_data.c src/mapicon_data.c src/mapview.c src/mapdecode.c src/menunav.c src/gs_state.c src/gs_game.c src/gs_areas.c src/gs_items.c src/gs_abilities.c src/gs_djinn.c src/bestiary.c src/launcher.c src/gs_classes.c src/gs_itemdesc.c src/gs_field.c src/dialoglog.c src/bgwrite.c $(MGBA)/src/platform/3ds/ctru-heap.c
 OBJS := $(patsubst %.c,$(OUT)/%.o,$(SRCS))
 
 all: $(OUT)/GoldenSun3DS.3dsx
