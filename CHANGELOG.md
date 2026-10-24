@@ -30,4 +30,7 @@ Goal of this release: find obvious problems. Everything below is new in a first 
 - New logo and icon, octagonal gold coin in the footer, the Menu footer shows just the frame rate (details go to `perflog.txt` if you create that file next to the saves).
 - Equip best button redrawn with the larger font so letters are not cut off.
 
+**Stability**
+- If the audio start-up crashes a console (seen once on a New 3DS: data abort in `ndspInit`), the next launch skips sound instead of crashing again; delete `audio_crash.flag` in `sdmc:/3ds/GoldenSun3DS/` to retry.
+
 **Known issues**: see the README ("Known limitations in this beta").

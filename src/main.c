@@ -79,8 +79,19 @@ static void audioRateChanged(struct mAVStream* stream, unsigned rate) {
 	ndspChnSetRate(0, rate * (60.0f / 59.7275f));
 }
 
+// Some consoles fault inside libctru's ndspInit (a data abort writing to DSP memory) and take the whole app down. A flag file is created before
+// the call and removed after it: if it is still there at the next start the previous attempt crashed, so sound stays off instead of crashing again.
+#define AUDIO_FLAG_PATH "sdmc:/3ds/GoldenSun3DS/audio_crash.flag"
+static bool audioSkipped;
+
 static void initAudio(void) {
-	if (R_FAILED(ndspInit())) {
+	FILE* flag = fopen(AUDIO_FLAG_PATH, "rb");
+	if (flag) { fclose(flag); audioSkipped = true; return; }   // last time audio start-up crashed: delete this file to try again
+	flag = fopen(AUDIO_FLAG_PATH, "wb");
+	if (flag) { fputs("audio start-up was in progress", flag); fclose(flag); }
+	Result rc = ndspInit();
+	if (R_FAILED(rc)) {
+		remove(AUDIO_FLAG_PATH);   // it failed cleanly (for example no DSP firmware): not a crash
 		return;
 	}
 	ndspSetOutputMode(NDSP_OUTPUT_STEREO);
@@ -95,6 +106,7 @@ static void initAudio(void) {
 		dspBuffer[i].status = NDSP_WBUF_DONE;
 	}
 	hasSound = true;
+	remove(AUDIO_FLAG_PATH);   // start-up survived
 }
 
 static uint32_t mapKeys(u32 held) {
@@ -665,6 +677,7 @@ int main(void) {
 	static GsState gs;
 	uiInit(&ui);
 	loadDjinnSets(&ui);
+	if (audioSkipped) { uiToast(&ui, "Sound off (see notes)"); ui.toastFrames = 400; }
 	bool newHw = false;
 	APT_CheckNew3DS(&newHw);
 	int profile = 0;   // 0 auto, 1 new (two cores), 2 old (single core): sdmc:/3ds/GoldenSun3DS/profile.txt, written by the patcher
