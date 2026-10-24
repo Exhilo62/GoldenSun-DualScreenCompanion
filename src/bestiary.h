@@ -3,6 +3,7 @@
 #ifndef BESTIARY_H
 #define BESTIARY_H
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "gs_state.h"
@@ -20,6 +21,7 @@ typedef struct {
 void bestReset(void);
 bool bestLoad(const char* path);   // false if the file is missing or damaged (the list is then empty)
 bool bestSave(const char* path);
+uint8_t* bestSerialize(size_t* outSize);   // the file contents as one malloc'd block; clears the dirty flag
 // Call once per loop with the current state: records every enemy of a battle (once per battle) and notes when a battle ends.
 void bestObserve(const GsState* st);
 // True once after a battle in which something changed: the caller should save.

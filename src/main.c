@@ -283,14 +283,14 @@ static void loadDjinnSets(UiView* ui) {   // 3 slots of {valid byte, 4 x u32 lit
 	fclose(f);
 }
 static void saveDjinnSets(const UiView* ui) {
-	FILE* f = fopen(djinnPath, "wb");
-	if (!f) return;
+	uint8_t* all = malloc(3 * 17);
+	if (!all) return;
 	for (int i = 0; i < 3; ++i) {
-		unsigned char b[17] = {ui->loadValid[i] ? 1 : 0};
-		for (int e = 0; e < 4; ++e) for (int k = 0; k < 4; ++k) b[1 + 4 * e + k] = (unsigned char) (ui->loadSet[i][e] >> (8 * k));
-		fwrite(b, 1, sizeof(b), f);
+		uint8_t* b = all + 17 * i;
+		b[0] = ui->loadValid[i] ? 1 : 0;
+		for (int e = 0; e < 4; ++e) for (int k = 0; k < 4; ++k) b[1 + 4 * e + k] = (uint8_t) (ui->loadSet[i][e] >> (8 * k));
 	}
-	fclose(f);
+	bgWriteStart(djinnPath, all, 3 * 17);
 }
 
 static void loadSettings(UiView* ui) {
@@ -315,11 +315,10 @@ static void loadSettings(UiView* ui) {
 }
 
 static void saveSettings(const UiView* ui) {
-	FILE* f = fopen(SETTINGS_PATH, "wb");
-	if (!f) return;
-	unsigned char b[6] = {(unsigned char) ui->topScale, (unsigned char) ui->hideMenus, (unsigned char) ui->stateSlot, (unsigned char) ui->autoSave, (unsigned char) ui->speedMul, (unsigned char) ui->muteSlow};
-	fwrite(b, 1, 6, f);
-	fclose(f);
+	uint8_t* b = malloc(6);
+	if (!b) return;
+	b[0] = (uint8_t) ui->topScale; b[1] = (uint8_t) ui->hideMenus; b[2] = (uint8_t) ui->stateSlot; b[3] = (uint8_t) ui->autoSave; b[4] = (uint8_t) ui->speedMul; b[5] = (uint8_t) ui->muteSlow;
+	bgWriteStart(SETTINGS_PATH, b, 6);
 }
 
 // Slot 1 keeps the original file name so older saved states still load.
@@ -699,6 +698,7 @@ int main(void) {
 		svcGetThreadPriority(&prio, CUR_THREAD_HANDLE);
 		worker = threadCreate(workerMain, NULL, 128 * 1024, prio, 2, false);   // core 2 exists on New 3DS only; NULL falls back to inline
 	}
+	bgWriteInit(worker ? 2 : -1);   // SD writes run on their own low-priority thread
 	mapInit();
 	gsAreasLoad(areasPath);
 	mapLoad(mapsPath);
@@ -735,7 +735,7 @@ int main(void) {
 		if (held & KEY_TOUCH) hidTouchRead(&touch);
 		gsReadState(&gs, memRead, core);
 		bestObserve(&gs);
-		if (bestTakeSave()) bestSave(bestPath);   // a few KB, written once when a battle that added something ends
+		if (bestTakeSave()) { size_t bn = 0; uint8_t* bb = bestSerialize(&bn); if (bb) bgWriteStart(bestPath, bb, bn); }   // a few KB, written once when a battle that added something ends
 		{   // The depth byte reads 0 for a single frame every ~24 frames while a command bar is up: only believe a list after 3 frames in a row.
 			static GsState prevGs;
 			static int zeroRun;
@@ -1230,8 +1230,8 @@ int main(void) {
 			u64 wall = t5 - wallStart;
 			const double tpm = 268123.0 * accFrames;
 			char perfFull[96];   // the detailed line goes to perflog.txt (when it exists); the Menu footer shows only the frame rate
-			snprintf(perfFull, sizeof(perfFull), "%.0ffps%s game%.0f e%.1f d%d t%.1f c%u%s", accFrames * 268123000.0 / (double) (wall ? wall : 1), worker ? " 2c" : "",
-				accGame * 268123000.0 / (double) (wall ? wall : 1), (double) acc[1] / tpm, droppedDraws, (double) acc[3] / tpm, cpuMs, autoSkip ? " sk" : "");
+			snprintf(perfFull, sizeof(perfFull), "%.0ffps%s game%.0f e%.1f d%d t%.1f u%.1f c%u%s", accFrames * 268123000.0 / (double) (wall ? wall : 1), worker ? " 2c" : "",
+				accGame * 268123000.0 / (double) (wall ? wall : 1), (double) acc[1] / tpm, droppedDraws, (double) acc[3] / tpm, (double) acc[4] / tpm, cpuMs, autoSkip ? " sk" : "");
 			snprintf(ui.perf, sizeof(ui.perf), "%.0f FPS", accGame * 268123000.0 / (double) (wall ? wall : 1));
 			static int perfReports;
 			if (++perfReports % 10 == 0) {   // only when the player created perflog.txt: one line per ten seconds for real-console timing reports
@@ -1241,7 +1241,7 @@ int main(void) {
 			const bool slow = accGame * 268123000.0 / (double) (wall ? wall : 1) < 54.0 && !ffActive;
 			static int skipOk;
 			if (slow) { autoSkip = true; skipOk = 0; }
-			else if (autoSkip && ++skipOk >= 10) { autoSkip = false; skipOk = 0; }   // after ten good seconds try full drawing again
+			else if (autoSkip && ++skipOk >= 30) { autoSkip = false; skipOk = 0; }   // after half a minute of full speed try full drawing again
 			slowNow = slow;
 			accGame = 0; droppedDraws = 0;
 			for (int i = 0; i < 5; ++i) acc[i] = 0;

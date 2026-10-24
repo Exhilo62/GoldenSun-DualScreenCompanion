@@ -40,4 +40,6 @@ Goal of this release: find obvious problems. Everything below is new in a first 
 
 - The map file is now overwritten in place (no delete and rename, the slowest SD operations). With an empty `perflog.txt` next to the saves, every loop that takes longer than 45 ms is logged as a `SPIKE` line with where the time went (emulation, SD write, rewind, autosave).
 
+- All SD-card writes (map, autosave, settings, Djinn sets, bestiary) now run on a separate low-priority thread, so a slow card can no longer freeze the game (a 207 ms hitch after a battle was traced to a bestiary save on the main thread). Automatic frame skip now stays on for 30 s of full speed before it tests full drawing again, which removed periodic dips.
+
 **Known issues**: see the README ("Known limitations in this beta").

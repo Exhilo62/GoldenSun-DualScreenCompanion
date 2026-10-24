@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "bestiary.h"
@@ -29,6 +30,24 @@ static unsigned get16(const unsigned char* p) { return p[0] | (unsigned) p[1] <<
 
 // One record: 16 name bytes, level, pad, maxHp, atk, def, agi, seen (little endian, 28 bytes).
 #define REC 28
+
+// The same file contents as bestSave writes, as one malloc'd block (the caller frees it or hands it to the background writer).
+uint8_t* bestSerialize(size_t* outSize) {
+	size_t n = 8 + (size_t) count * REC;
+	uint8_t* b = calloc(1, n);
+	if (!b) return NULL;
+	b[0] = MAGIC & 255; b[1] = (MAGIC >> 8) & 255; b[2] = (MAGIC >> 16) & 255; b[3] = MAGIC >> 24;
+	put16(b + 4, (unsigned) count);
+	for (int i = 0; i < count; ++i) {
+		unsigned char* r = b + 8 + (size_t) i * REC;
+		memcpy(r, list[i].name, 16);
+		r[16] = list[i].level;
+		put16(r + 18, list[i].maxHp); put16(r + 20, list[i].atk); put16(r + 22, list[i].def); put16(r + 24, list[i].agi); put16(r + 26, list[i].seen);
+	}
+	dirty = false;
+	*outSize = n;
+	return b;
+}
 
 bool bestSave(const char* path) {
 	FILE* f = fopen(path, "wb");

@@ -4,95 +4,104 @@
 #include <string.h>
 #include <3ds.h>
 
-#define SLICE 4096   // bytes written per frame: small enough that even a slow SD write costs only a few milliseconds
+#define QUEUE_N 8
+#define CHUNK 16384
 
-typedef struct { char path[160]; uint8_t* data; size_t size; bool inPlace; } Pending;
-
-enum { ST_IDLE, ST_OPEN, ST_WRITE, ST_CLOSE, ST_REMOVE, ST_RENAME };
+typedef struct { char path[160]; uint8_t* data; size_t size; bool inPlace; } Job;
 
 static LightLock lock;
-static bool lockInit;
-static Pending next;                    // waiting to start (guarded by lock)
-static Pending cur;                     // being written (main loop only)
-static FILE* curFile;
-static size_t curDone;
-static int state = ST_IDLE;
-static bool curOk;
+static LightSemaphore jobs;
+static Job queue[QUEUE_N];
+static int qHead, qCount;
+static int active;              // queued plus running
+static Thread thread;
+static bool started;
 
-static void ensureLock(void) { if (!lockInit) { LightLock_Init(&lock); lockInit = true; } }
+static bool writeJob(const Job* j) {
+	char tmp[170];
+	FILE* f;
+	if (j->inPlace) {
+		f = fopen(j->path, "r+b");
+		if (!f) f = fopen(j->path, "wb");
+	} else {
+		snprintf(tmp, sizeof(tmp), "%s.tmp", j->path);
+		f = fopen(tmp, "wb");
+	}
+	if (!f) return false;
+	bool ok = true;
+	for (size_t done = 0; ok && done < j->size; ) {
+		size_t n = j->size - done < CHUNK ? j->size - done : CHUNK;
+		ok = fwrite(j->data + done, 1, n, f) == n;
+		done += n;
+	}
+	if (fclose(f) != 0) ok = false;
+	if (!j->inPlace) {
+		if (ok) { remove(j->path); rename(tmp, j->path); }
+		else remove(tmp);
+	}
+	return ok;
+}
 
-static void startJob(const char* path, uint8_t* data, size_t size, bool inPlace) {
-	ensureLock();
+static void threadMain(void* arg) {
+	(void) arg;
+	for (;;) {
+		LightSemaphore_Acquire(&jobs, 1);
+		LightLock_Lock(&lock);
+		if (qCount == 0) { LightLock_Unlock(&lock); continue; }
+		Job j = queue[qHead];
+		qHead = (qHead + 1) % QUEUE_N;
+		--qCount;
+		LightLock_Unlock(&lock);
+		writeJob(&j);
+		free(j.data);
+		LightLock_Lock(&lock);
+		--active;
+		LightLock_Unlock(&lock);
+	}
+}
+
+void bgWriteInit(int core) {
+	if (started) return;
+	LightLock_Init(&lock);
+	LightSemaphore_Init(&jobs, 0, QUEUE_N);
+	thread = threadCreate(threadMain, NULL, 64 * 1024, 0x3F, core, false);   // lowest priority: it only runs when the game threads wait
+	if (!thread && core != -1) thread = threadCreate(threadMain, NULL, 64 * 1024, 0x3F, -1, false);
+	started = thread != NULL;
+	if (!started) LightLock_Init(&lock);
+}
+
+static void enqueue(const char* path, uint8_t* data, size_t size, bool inPlace) {
+	if (!started) {   // no thread (creation failed): write right here
+		Job j; snprintf(j.path, sizeof(j.path), "%s", path); j.data = data; j.size = size; j.inPlace = inPlace;
+		writeJob(&j); free(data);
+		return;
+	}
 	LightLock_Lock(&lock);
-	free(next.data);   // an older request that never started is superseded
-	snprintf(next.path, sizeof(next.path), "%s", path);
-	next.data = data; next.size = size; next.inPlace = inPlace;
+	for (int i = 0; i < qCount; ++i) {   // a newer copy of the same file replaces one that has not started yet
+		Job* q = &queue[(qHead + i) % QUEUE_N];
+		if (!strcmp(q->path, path)) { free(q->data); q->data = data; q->size = size; q->inPlace = inPlace; LightLock_Unlock(&lock); return; }
+	}
+	if (qCount == QUEUE_N) { LightLock_Unlock(&lock); free(data); return; }   // far more than ever expected: drop rather than block
+	Job* q = &queue[(qHead + qCount) % QUEUE_N];
+	snprintf(q->path, sizeof(q->path), "%s", path);
+	q->data = data; q->size = size; q->inPlace = inPlace;
+	++qCount; ++active;
 	LightLock_Unlock(&lock);
+	LightSemaphore_Release(&jobs, 1);
 }
 
-void bgWriteStart(const char* path, uint8_t* data, size_t size) { startJob(path, data, size, false); }
-void bgWriteStartInPlace(const char* path, uint8_t* data, size_t size) { startJob(path, data, size, true); }
-
-static void tmpName(char* out, size_t n) { snprintf(out, n, "%s.tmp", cur.path); }
-
-static void done(void) {
-	free(cur.data);
-	cur.data = NULL;
-	state = ST_IDLE;
-}
+void bgWriteStart(const char* path, uint8_t* data, size_t size) { enqueue(path, data, size, false); }
+void bgWriteStartInPlace(const char* path, uint8_t* data, size_t size) { enqueue(path, data, size, true); }
+void bgWritePump(void) {}
 
 bool bgWriteBusy(void) {
-	ensureLock();
+	if (!started) return false;
 	LightLock_Lock(&lock);
-	bool b = state != ST_IDLE || next.data;
+	bool b = active > 0;
 	LightLock_Unlock(&lock);
 	return b;
 }
 
-// One step per call. Opening, closing, deleting and renaming on a FAT card each cost far more than a small write, so each gets a frame of its own.
-void bgWritePump(void) {
-	ensureLock();
-	char tmp[170];
-	switch (state) {
-	case ST_IDLE:
-		LightLock_Lock(&lock);
-		cur = next;
-		next.data = NULL;
-		LightLock_Unlock(&lock);
-		if (cur.data) { state = ST_OPEN; curOk = true; }
-		break;
-	case ST_OPEN:
-		if (cur.inPlace) { curFile = fopen(cur.path, "r+b"); if (!curFile) curFile = fopen(cur.path, "wb"); }
-		else { tmpName(tmp, sizeof(tmp)); curFile = fopen(tmp, "wb"); }
-		curDone = 0;
-		if (curFile) state = ST_WRITE; else done();
-		break;
-	case ST_WRITE: {
-		size_t n = cur.size - curDone < SLICE ? cur.size - curDone : SLICE;
-		if (n && fwrite(cur.data + curDone, 1, n, curFile) != n) curOk = false;
-		curDone += n;
-		if (!curOk || curDone >= cur.size) state = ST_CLOSE;
-		break;
-	}
-	case ST_CLOSE:
-		if (fclose(curFile) != 0) curOk = false;
-		curFile = NULL;
-		if (cur.inPlace) { done(); break; }
-		if (curOk) state = ST_REMOVE;
-		else { tmpName(tmp, sizeof(tmp)); remove(tmp); done(); }
-		break;
-	case ST_REMOVE:
-		remove(cur.path);
-		state = ST_RENAME;
-		break;
-	case ST_RENAME:
-		tmpName(tmp, sizeof(tmp));
-		rename(tmp, cur.path);
-		done();
-		break;
-	}
-}
-
 void bgWriteFlush(void) {
-	while (bgWriteBusy()) bgWritePump();
+	while (bgWriteBusy()) svcSleepThread(2000000);   // 2 ms
 }
