@@ -1148,7 +1148,7 @@ int main(void) {
 		if (menuBit) menuHold = 2; else if (menuHold > 0) --menuHold;  // the panels vanish a frame after the bit clears
 		bool menuNow = menuBit || menuHold > 0;
 		if (ui.autoSave && ++autoTimer >= 60 * 60 * 5 && !menuNow && gs.mode == GS_MODE_FIELD) { autoTimer = 0; writeStateAsync(core, autoPath); }   // every ~5 minutes in the field
-		bool saveMap = (++mapSaveTimer >= 1800 && !gs.menuOpen) || pendingSave;   // every ~30 s, only if the map changed
+		bool saveMap = (++mapSaveTimer >= 10800 && !gs.menuOpen && gs.mode == GS_MODE_FIELD) || pendingSave;   // every ~3 minutes in the field (and on exit), only if the map changed
 		if (saveMap) { mapSaveTimer = 0; pendingSave = false; }
 
 		// Two-core mode: emulation never waits for the display. If the worker is still painting or presenting the previous frame this

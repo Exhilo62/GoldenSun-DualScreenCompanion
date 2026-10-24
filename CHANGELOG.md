@@ -35,4 +35,6 @@ Goal of this release: find obvious problems. Everything below is new in a first 
 - Fixed a crash when starting a game from the .cia (data abort at `0x1FF57FFE`, as soon as sound started): the .cia now declares the DSP memory range the audio library needs. The SD-card (.3dsx) version was never affected.
 - As a safety net, if the audio start-up ever crashes a console, the next launch skips sound instead of crashing again; delete `audio_crash.flag` in `sdmc:/3ds/GoldenSun3DS/` to retry.
 
+- Fewer stutters while walking: the map is saved to the SD card every 3 minutes (and on exit) instead of every 30 seconds, in 4 KB pieces with each slow file operation on its own frame.
+
 **Known issues**: see the README ("Known limitations in this beta").
