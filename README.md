@@ -43,7 +43,7 @@ These start **Off** on a fresh install; turn on the ones you want.
 ## What it does
 - **Bottom screen tabs**: Party (tap a member for the character screen), Psynergy, Djinn, Map, Items, Menu, plus an automatic Battle panel with enemy info and turn order.
 - **Touch actions through the game's own menus**: tap an item to equip it (with a stat-change preview), "Equip best", tap a Psynergy to cast it, tap a Djinn to Set / Standby it, Djinn **Sets** (save and apply layouts), **Repeat round** in battle, a Lost Age password keyboard.
-- **Live map** stitched from the game's own frames, saved between sessions.
+- **Map**: the complete area is drawn from your own ROM (USA / Europe cartridges) with your position marked, from the first step. The world maps and other cartridge versions use a live map stitched from the game's frames instead.
 - **Quality of life**: message log, rewind 5 s, three save-state slots with thumbnails, autosave and resume, rotating `.sav` backups, fast forward, item descriptions, enemy details.
 
 Full details: [docs/FEATURES.md](docs/FEATURES.md).
@@ -51,7 +51,7 @@ Full details: [docs/FEATURES.md](docs/FEATURES.md).
 ## Known limitations in this beta
 - **Old 3DS, and emulators at their default speed, run slow.** Roughly 25-35 fps; automatic frame skip and **Mute if slow** may not be able to compensate (slow motion, choppy sound). See [docs/EMULATORS.md](docs/EMULATORS.md) for the emulator settings that fix it on a fast PC or phone.
 - **Speed depends on the console.** Old 3DS cannot reach full speed. Fast forward cannot go faster than your console can emulate; it is capped to keep the picture smooth. The Menu footer shows the real numbers (`e` = ms per emulated frame, `c` = CPU benchmark: about 30 means the New 3DS clock is active, about 90 means it is not).
-- **Golden Sun only** for: equip preview / Equip best, Djinn sets, the live map. The Lost Age has a partial info UI (see [docs/LOST_AGE.md](docs/LOST_AGE.md)).
+- The Lost Age has the same tabs and touch actions as Golden Sun; its world map is not drawn from the ROM yet, and a few touch actions (Repeat round, Equip best with better gear) were only lightly tested there (see [docs/LOST_AGE.md](docs/LOST_AGE.md)).
 - **Lightly tested**: Repeat round, Djinn set Save / Apply / All Set, Equip best on real hardware. Android dual-screen devices have not been tested (only Azahar on Windows).
 - **Sound safety net**: if audio start-up ever crashes a console, the next launch runs without sound instead of crashing again (a "Sound off" message shows); delete `sdmc:/3ds/GoldenSun3DS/audio_crash.flag` to try sound again. (The first .cia build crashed at game start on a New 3DS because the .cia did not declare the DSP memory range; fixed in the current build.)
 - **Sound in emulators**: in Azahar / Citra the app writes a placeholder `dspfirm.cdc` into the emulator's virtual SD on first start (the audio library demands the file; the emulator's built-in audio ignores its contents), so no dump from a real 3DS is needed. Sound only plays at the right pitch and speed if the emulator runs the game at full speed: set Azahar's CPU clock to about 300-400% and enable New 3DS mode, otherwise the audio is slow and choppy. The Menu tab footer shows `(no audio)` while sound is unavailable and `(muted: slow)` when **Mute if slow** is silencing a device that cannot hold full speed.

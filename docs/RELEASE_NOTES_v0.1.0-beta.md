@@ -11,14 +11,14 @@ No ROMs are included. You need your own dumps.
 
 ### What to test
 - Start-up: the pick screen (shows `v0.1.0 beta`), loading each game, autosave resume.
-- Bottom-screen tabs in the field and in battle; the map filling in as you walk.
+- Bottom-screen tabs in the field and in battle; the Map tab (the whole area is drawn from your ROM with your position marked).
 - Tap to equip (stat preview), Equip best, casting Psynergy, flipping Djinn, Djinn sets, Repeat round.
 - Speed: is it smooth? Hold Y / ZR for fast forward. The **Menu** tab footer (`NNfps ... eMM ... cNN`) is the most useful thing to include in a report.
 
 ### Known limitations
 - **Old 3DS (and emulators at default speed) run slowly**, roughly 25-35 fps, and the automatic helpers may not be able to fix it. In Azahar use New 3DS mode with the CPU clock at about 300%: see `docs/EMULATORS.md`.
 - Old 3DS cannot reach full speed; fast forward cannot beat what the console can emulate.
-- Equip preview / Equip best, Djinn sets and the live map are Golden Sun only; The Lost Age has a partial info UI.
+- The Lost Age has the same tabs as Golden Sun; its world map is still the stitched live map, and the maps are only drawn from the ROM for the USA / Europe cartridges.
 - Repeat round, Djinn set Save / Apply / All Set and Equip best on real hardware are lightly tested. Android dual-screen devices are untested.
 
 ### Reporting
