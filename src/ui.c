@@ -414,7 +414,7 @@ void uiUpdate(UiView* v, const GsState* st, bool down, int x, int y, UiOutput* o
 			return;
 		}
 	}
-	if (v->tab == TAB_ITEMS && st->mode == GS_MODE_FIELD && inRect(x, y, 232, CONTENT_Y + CONTENT_H - 17, 76, 14)) { out->equipBest = v->itemChar < st->partySize ? v->itemChar : 0; return; }
+	if (v->tab == TAB_ITEMS && st->mode == GS_MODE_FIELD && inRect(x, y, 222, CONTENT_Y + CONTENT_H - 30, 88, 18)) { out->equipBest = v->itemChar < st->partySize ? v->itemChar : 0; return; }
 	if (v->tab == TAB_ITEMS && st->mode == GS_MODE_FIELD && y >= CONTENT_Y + 28 && y < CONTENT_Y + 28 + 8 * 14 && x >= 8 && x < 312) {
 		int who = v->itemChar < st->partySize ? v->itemChar : 0;
 		int want = (x >= 160 ? 8 : 0) + (y - (CONTENT_Y + 28)) / 14, shown = 0;
@@ -1243,8 +1243,8 @@ static void itemsTab(const GsState* st, const UiView* v) {
 	snprintf(line, sizeof(line), "EXP %lu", (unsigned long) st->party[who].exp);
 	gTextRight(306, CONTENT_Y + CONTENT_H - 12, line, 1, C_DIM);
 	gText(14, CONTENT_Y + CONTENT_H - 12, "Gold = equipped  Tap = equip  Hold = info", 0, C_DIM);
-	gPanel(232, CONTENT_Y + CONTENT_H - 17, 76, 14, C_ACTIVE_T, C_ACTIVE_B, C_GOLD);
-	gTextCentered(270, CONTENT_Y + CONTENT_H - 14, "Equip best", 0, C_GOLD);   // for the member shown above
+	gPanel(222, CONTENT_Y + CONTENT_H - 30, 88, 18, C_ACTIVE_T, C_ACTIVE_B, C_GOLD);   // sits above the EXP line and below the last item row
+	gTextCentered(266, CONTENT_Y + CONTENT_H - 27, "Equip best", 1, C_GOLD);   // body font with room for the q and p tails; acts on the member shown above
 	if (v->descFrames > 0) {   // description popup from a long press
 		gPanel(10, CONTENT_Y + CONTENT_H - 56, 300, 50, C_PANEL_T, C_PANEL_B, C_GOLD);
 		gTextShadow(18, CONTENT_Y + CONTENT_H - 51, gsItemName((unsigned) v->descId), 1, C_GOLD);
@@ -1282,9 +1282,11 @@ static void waitingPanel(void) {
 
 static const char* footerNote;   // set by uiDraw: replaces the footer's second line (the timing readout on the Menu tab)
 
-// Gold octagonal coin like the game's menu icon: dark outline, a bevelled rim lit from the top left, a flat face with a vertical gradient and a
-// glossy diagonal highlight.
+// Gold octagonal coin like the game's menu icon: a thin dark outline, a faceted rim (bright top and bottom-left, dark right), and a golden face
+// with a vertical gradient and a soft gloss at the upper left.
 static void drawCoin(int cx, int cy, int r) {
+	static const uint16_t rimN = RGB(254, 240, 170), rimNW = RGB(254, 247, 215), rimW = RGB(244, 205, 70), rimSW = RGB(214, 130, 8);
+	static const uint16_t rimS = RGB(250, 226, 120), rimSE = RGB(190, 116, 10), rimE = RGB(158, 94, 8), rimNE = RGB(232, 172, 28);
 	for (int j = -r; j <= r; ++j) {
 		for (int i = -r; i <= r; ++i) {
 			int ax = i < 0 ? -i : i, ay = j < 0 ? -j : j;
@@ -1292,19 +1294,20 @@ static void drawCoin(int cx, int cy, int r) {
 			int diag = ((ax + ay) * 181) >> 8;   // (|x| + |y|) / sqrt 2
 			int d = m > diag ? m : diag;
 			if (d > r) continue;
-			int lit = -(i + j);   // positive towards the top left
 			uint16_t c;
-			if (d >= r) c = RGB(112, 66, 10);                                    // outline
-			else if (d >= r - 3) {                                               // rim
-				int t = 128 + lit * 6;
+			if (d >= r) {                                                        // outline: dark brown, darker towards the bottom right
+				int t = 128 + (i + j) * 10;
 				if (t < 0) t = 0; else if (t > 255) t = 255;
-				c = gMix(RGB(196, 124, 16), RGB(255, 206, 72), t);
-				if (d == r - 3) c = gMix(c, RGB(150, 92, 10), 90);               // inner bevel line
+				c = gMix(RGB(120, 72, 8), RGB(58, 30, 2), t);
+			} else if (d >= r - 2) {                                             // rim, one shade per octagon side
+				if (m >= diag) c = ay >= ax ? (j < 0 ? rimN : rimS) : (i < 0 ? rimW : rimE);
+				else c = i < 0 ? (j < 0 ? rimNW : rimSW) : (j < 0 ? rimNE : rimSE);
 			} else {                                                             // face
 				int t = (j + r) * 255 / (2 * r);
-				c = gMix(RGB(255, 222, 78), RGB(238, 168, 28), t);
-				int band = i + j;                                                // diagonal gloss, upper left
-				if (band >= -r + 1 && band <= -r / 2 - 1 && d < r - 4) c = gMix(c, RGB(255, 246, 170), band <= -r / 2 - 3 ? 200 : 120);
+				c = gMix(RGB(253, 219, 88), RGB(243, 176, 34), t);
+				int band = i + j;
+				if (band <= -r / 2 && band >= -r && d < r - 3) c = gMix(c, RGB(254, 250, 226), band <= -r / 2 - 1 ? 190 : 110);   // gloss
+				if (d == r - 2 || (ax + ay > r + 1 && i > 0 && j > 0)) c = gMix(c, RGB(205, 128, 8), 70);                         // shaded lower right
 			}
 			gPx(cx + i, cy + j, c);
 		}
@@ -1337,7 +1340,7 @@ static void footer(const GsState* st) {
 	else snprintf(id, sizeof(id), "Map %03X   Party Lv %u", (unsigned) st->areaGroup, (unsigned) st->party[0].level);
 	gText(42, FOOT_Y + 17, footerNote ? footerNote : id, 0, footerNote ? C_GOLD : C_DIM);
 	gPanel(212, FOOT_Y, 104, FOOT_H, C_CARD_T, C_CARD_B, C_GOLD);
-	drawCoin(230, FOOT_Y + 14, 10);
+	drawCoin(228, FOOT_Y + 14, 8);
 	char line[24];
 	snprintf(line, sizeof(line), "%lu", (unsigned long) st->coins);
 	int cs = gTextW(line, 2) <= 62 ? 2 : 1;
