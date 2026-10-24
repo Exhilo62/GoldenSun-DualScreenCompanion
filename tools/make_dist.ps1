@@ -9,7 +9,7 @@ Copy-Item "$root\build\app\GoldenSun3DS.3dsx" $out -Force
 $strip = @('C:\devkitPro\devkitARM\bin\arm-none-eabi-strip.exe', '/opt/devkitpro/devkitARM/bin/arm-none-eabi-strip.exe') | Where-Object { Test-Path $_ } | Select-Object -First 1
 if ($strip) { & $strip -o "$out\GoldenSun3DS.elf" "$root\build\app\GoldenSun3DS.elf" } else { Copy-Item "$root\build\app\GoldenSun3DS.elf" $out -Force }
 Copy-Item "$root\tools\patcher\GoldenSun3DS-Patcher.ps1", "$root\tools\patcher\Install.bat", "$root\tools\patcher\GoldenSun3DS.rsf" $out -Force
-Copy-Item "$root\assets\icon.png", "$root\assets\banner.png", "$root\assets\silence.wav", "$root\assets\badge.png", "$root\assets\banner3d.cgfx" $out -Force
+Copy-Item "$root\assets\icon.png", "$root\assets\banner.png", "$root\assets\silence.wav", "$root\assets\badge.png", "$root\assets\banner3d.cgfx" $out -Force -ErrorAction SilentlyContinue
 Copy-Item "$root\tools\patcher\bin\*.exe" "$out\bin" -Force -ErrorAction SilentlyContinue
 & "$root\tools\patcher\MakeLauncher.ps1" -OutDir $out   # GoldenSun3DS-Patcher.exe, the double-click launcher
 $vh = Get-Content "$root\src\version.h" -Raw
@@ -33,5 +33,10 @@ $rel = Join-Path (Join-Path "$root\dist" "releases") "v$ver-$stage"
 New-Item -ItemType Directory -Force $rel | Out-Null
 $zip = Join-Path $rel "GoldenSun3DS_Patcher_v$ver-$stage.zip"
 Remove-Item $zip -ErrorAction SilentlyContinue
-Compress-Archive -Path $out -DestinationPath $zip -Force
+# zip a private copy: a patcher that is open from dist (or any editor) may hold files in dist open
+$stage = Join-Path ([System.IO.Path]::GetTempPath()) ("gs3ds_stage_" + [guid]::NewGuid().ToString("N").Substring(0, 6))
+New-Item -ItemType Directory -Force $stage | Out-Null
+Copy-Item $out $stage -Recurse -Force
+Compress-Archive -Path (Join-Path $stage "GoldenSun3DS-Setup") -DestinationPath $zip -Force
+Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue
 Write-Output "wrote $zip"

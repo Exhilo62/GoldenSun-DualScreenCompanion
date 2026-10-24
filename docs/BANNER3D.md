@@ -1,8 +1,8 @@
 # 3D spinning HOME Menu banner
 
 The `.cia` can carry a real 3D banner: the logo is an extruded relief model that turns on the spot while the title is selected in the HOME Menu.
-It is **experimental**: it was built and packaged with the tools below, but it has not been seen on a console by the maintainer yet. If the banner
-looks wrong, build the .cia with **"3D spinning banner" unticked** (or `-FlatBanner` on the command line): that uses the flat logo image instead.
+It is **experimental and off by default**: the first test on a console did not work (details to be filled in). Tick **"3D spinning banner"** in the patcher
+(or pass `-Banner3d` on the command line) to try it; the default is the flat logo image.
 
 ## What is in the box
 - `assets/banner3d/golden_sun_relief.glb`, `logo_texture` data inside it: the static relief model from the asset kit (stone plaque, medallion, sunburst, five lettering groups; 2,668 triangles).

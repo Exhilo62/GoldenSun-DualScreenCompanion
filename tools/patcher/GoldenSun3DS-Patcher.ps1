@@ -16,7 +16,7 @@ param(
     [string]$Rom2 = '',
     [string]$Save1 = '',
     [string]$Save2 = '',
-    [switch]$FlatBanner   # CLI: use the flat banner image instead of the 3D spinning logo
+    [switch]$Banner3d   # CLI: use the experimental 3D spinning logo banner (default: the flat logo image)
 )
 $ErrorActionPreference = 'Stop'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -145,7 +145,7 @@ function Install-Folder([string]$console, [string]$sd, [string]$rom1, [string]$r
     return $log
 }
 
-function Build-Cia([string]$console, [string]$cia, [string]$rom1, [string]$rom2, [string]$save1, [string]$save2, [bool]$use3d = $true) {
+function Build-Cia([string]$console, [string]$cia, [string]$rom1, [string]$rom2, [string]$save1, [string]$save2, [bool]$use3d = $false) {
     $makerom = Find-Tool 'makerom'
     $bannertool = Find-Tool 'bannertool'
     if (-not $makerom -or -not $bannertool) { throw 'makerom.exe and bannertool.exe are needed for a CIA: put them in a "bin" folder next to this script (or on PATH).' }
@@ -196,7 +196,7 @@ function Build-Cia([string]$console, [string]$cia, [string]$rom1, [string]$rom2,
 }
 
 if ($NoGui) {
-    if ($Output -eq 'cia') { Build-Cia $Console $CiaPath $Rom1 $Rom2 $Save1 $Save2 (-not $FlatBanner) | ForEach-Object { Write-Output $_ } }
+    if ($Output -eq 'cia') { Build-Cia $Console $CiaPath $Rom1 $Rom2 $Save1 $Save2 $Banner3d | ForEach-Object { Write-Output $_ } }
     else { Install-Folder $Console $SdRoot $Rom1 $Rom2 $Save1 $Save2 | ForEach-Object { Write-Output $_ } }
     return
 }
@@ -274,7 +274,8 @@ if ($badgeFile) {
     $pic = New-Object System.Windows.Forms.PictureBox
     $pic.Location = New-Object System.Drawing.Point(536, 8); $pic.Size = New-Object System.Drawing.Size(80, 80)
     $pic.SizeMode = 'Zoom'; $pic.BackColor = [System.Drawing.Color]::Transparent
-    $pic.Image = [System.Drawing.Image]::FromFile($badgeFile)
+    $badgeMs = New-Object System.IO.MemoryStream (, [System.IO.File]::ReadAllBytes($badgeFile))   # from memory, so the file is not locked while the patcher is open
+    $pic.Image = [System.Drawing.Image]::FromStream($badgeMs)
     $form.Controls.Add($pic)
 }
 $btnNotes.Add_Click({
@@ -304,7 +305,7 @@ $rOld = New-Radio 'Old 3DS / 3DS XL / 2DS   (single core, about 25-30 fps)' 18 3
 [void](New-Label '2.  What should it make?' 22 182 300 24 $text 11 $true)
 $chk3d = New-Object System.Windows.Forms.CheckBox
 $chk3d.Text = '3D spinning banner (experimental)'; $chk3d.Location = New-Object System.Drawing.Point(330, 182); $chk3d.Size = New-Object System.Drawing.Size(290, 26)
-$chk3d.Checked = [bool](Find-Asset 'banner3d.cgfx'); $chk3d.Enabled = $chk3d.Checked; $chk3d.ForeColor = $text; $chk3d.BackColor = $navy
+$chk3d.Checked = $false; $chk3d.Enabled = [bool](Find-Asset 'banner3d.cgfx');   # off by default: it did not display correctly on a console $chk3d.ForeColor = $text; $chk3d.BackColor = $navy
 $form.Controls.Add($chk3d)
 $grp2 = New-Group 22 206 600 62
 $rFolder = New-Radio 'Files for the SD card (Homebrew Launcher, a 3ds folder)' 18 32 $false $grp2
