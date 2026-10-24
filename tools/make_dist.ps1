@@ -16,7 +16,7 @@ $vh = Get-Content "$root\src\version.h" -Raw
 $ver = [regex]::Match($vh, 'APP_VERSION "([^"]+)"').Groups[1].Value
 $stage = [regex]::Match($vh, 'APP_STAGE "([^"]+)"').Groups[1].Value
 @"
-GoldenSun3DS setup (v$ver $stage)
+Golden Sun - Dual Screen Companion - setup (v$ver $stage)
 1. Double-click GoldenSun3DS-Patcher.exe (or Install.bat if the .exe is blocked).
 2. Pick New 3DS (two cores, 60 fps) or Old 3DS (single core, about 25-30 fps).
 3. Choose what to make: files for the SD card, or one installable .cia with your ROMs inside.

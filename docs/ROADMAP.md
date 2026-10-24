@@ -1,6 +1,6 @@
 # Roadmap
 
-GoldenSun3DS is built for the **New 3DS / New 3DS XL**. That is the only console it is developed and tested on.
+Golden Sun - Dual Screen Companion is built for the **New 3DS / New 3DS XL**. That is the only console it is developed and tested on.
 
 ## Other devices: try it today
 Support for other devices is being worked on (see below). Until then you are welcome to try the existing `.3ds` / `.cia` on anything else that can run them:

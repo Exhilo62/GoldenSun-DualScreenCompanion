@@ -1,4 +1,4 @@
-# Playing GoldenSun3DS in an emulator (Azahar)
+# Playing Golden Sun - Dual Screen Companion in an emulator (Azahar)
 
 The app runs in [Azahar](https://azahar-emu.org) (and other Citra-derived emulators) on Windows, Linux and Android. It needs the right emulator settings
 to run at full speed with sound, and the speed you get depends on your hardware.

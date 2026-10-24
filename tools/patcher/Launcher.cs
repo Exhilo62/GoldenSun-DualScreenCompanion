@@ -15,7 +15,7 @@ static class Launcher
         if (!File.Exists(script))
         {
             MessageBox.Show("GoldenSun3DS-Patcher.ps1 was not found next to this program.\nUnzip the whole download and keep the files together.",
-                "GoldenSun3DS Patcher", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                "Golden Sun - Dual Screen Companion - Patcher", MessageBoxButtons.OK, MessageBoxIcon.Error);
             return;
         }
         string extra = args.Length > 0 ? " " + string.Join(" ", args) : "";
@@ -26,7 +26,7 @@ static class Launcher
         try { Process.Start(psi); }
         catch (Exception e)
         {
-            MessageBox.Show("Could not start Windows PowerShell:\n" + e.Message, "GoldenSun3DS Patcher", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show("Could not start Windows PowerShell:\n" + e.Message, "Golden Sun - Dual Screen Companion - Patcher", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 }

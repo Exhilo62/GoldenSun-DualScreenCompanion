@@ -32,7 +32,7 @@ $(OUT)/GoldenSun3DS.elf: $(OBJS)
 	$(CC) $(LDFLAGS) $(OBJS) $(LIBS) -o $@
 
 $(OUT)/GoldenSun3DS.smdh: assets/icon.png
-	smdhtool --create "GoldenSun3DS" "Golden Sun with a dual-screen touch UI" "GoldenSun3DS" $< $@
+	smdhtool --create "Golden Sun - Dual Screen Companion" "Golden Sun with a dual-screen touch UI" "GoldenSun3DS" $< $@
 
 $(OUT)/GoldenSun3DS.3dsx: $(OUT)/GoldenSun3DS.elf $(OUT)/GoldenSun3DS.smdh
 	3dsxtool $< $@ --smdh=$(OUT)/GoldenSun3DS.smdh

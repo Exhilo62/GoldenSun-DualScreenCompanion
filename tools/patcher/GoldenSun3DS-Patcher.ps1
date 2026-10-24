@@ -169,7 +169,7 @@ function Build-Cia([string]$console, [string]$cia, [string]$rom1, [string]$rom2,
         $log.Add("Profile: $console")
         & $bannertool makebanner -i $banner -a $wav -o "$work\banner.bnr" | Out-Null
         if ($LASTEXITCODE) { throw 'bannertool could not make the banner.' }
-        & $bannertool makesmdh -s 'GoldenSun3DS' -l 'Golden Sun 3DS Companion' -p 'GoldenSun3DS' -i $icon -o "$work\icon.smdh" | Out-Null
+        & $bannertool makesmdh -s 'Golden Sun - Dual Screen Companion' -l 'Golden Sun - Dual Screen Companion' -p 'GoldenSun3DS' -i $icon -o "$work\icon.smdh" | Out-Null
         if ($LASTEXITCODE) { throw 'bannertool could not make the icon.' }
         $outDir = Split-Path -Parent $cia
         if ($outDir -and -not (Test-Path $outDir)) { New-Item -ItemType Directory -Force $outDir | Out-Null }
@@ -209,7 +209,7 @@ $text = [System.Drawing.Color]::FromArgb(244, 246, 255)
 $dim = [System.Drawing.Color]::FromArgb(150, 160, 196)
 
 $form = New-Object System.Windows.Forms.Form
-$form.Text = 'GoldenSun3DS Patcher'
+$form.Text = 'Golden Sun - Dual Screen Companion - Patcher'
 $form.Size = New-Object System.Drawing.Size(640, 840)
 $form.StartPosition = 'CenterScreen'
 $form.BackColor = $navy
@@ -281,7 +281,7 @@ $btnNotes.Add_Click({
     $notes = if ($nf) { (Get-Content $nf -Raw) -replace "`r?`n", "`r`n" } else { 'No patch notes were found next to the patcher.' }
     $nfm = New-Object System.Windows.Forms.Form
     $bf = Find-File @("$here\build.txt")
-    $nfm.Text = 'GoldenSun3DS patch notes - version ' + $verText + $(if ($bf) { ' (built ' + (Get-Content $bf -Raw).Trim() + ')' } else { '' })
+    $nfm.Text = 'Golden Sun - Dual Screen Companion - patch notes - version ' + $verText + $(if ($bf) { ' (built ' + (Get-Content $bf -Raw).Trim() + ')' } else { '' })
     $nfm.Size = New-Object System.Drawing.Size(640, 560); $nfm.StartPosition = 'CenterParent'
     $nfm.BackColor = $navy; $nfm.ForeColor = $text; $nfm.FormBorderStyle = 'FixedDialog'; $nfm.MaximizeBox = $false; $nfm.MinimizeBox = $false
     $tb = New-Object System.Windows.Forms.TextBox
