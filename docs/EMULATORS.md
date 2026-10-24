@@ -15,7 +15,7 @@ to run at full speed with sound, and the speed you get depends on your hardware.
 1. Run `GoldenSun3DS-Patcher.exe` (or `Install.bat`) from the download.
 2. Step 1: choose **New 3DS** (even if you only use an emulator: this is the profile that targets 60 fps and uses two cores).
 3. Step 2: choose **.cia**, then tick **"Also make a .3ds file for emulators"**. Pick your own ROM(s) and press **Build**.
-4. You now have `GoldenSun3DS.cia` and `GoldenSun3DS.3ds` next to each other. Use the `.3ds` for the emulator (the `.cia` is for a real console).
+4. You now have `Golden Sun - Dual Screen.cia` and `Golden Sun - Dual Screen.3ds` next to each other (the files are named automatically if you pick a folder; you can still type your own name). Use the `.3ds` for the emulator (the `.cia` is for a real console).
    Your ROM(s) are inside the file, so keep it for yourself and do not share it.
 
 ### 2. Set up the emulator (these are the changes that were needed)

@@ -146,6 +146,10 @@ function Install-Folder([string]$console, [string]$sd, [string]$rom1, [string]$r
 }
 
 function Build-Cia([string]$console, [string]$cia, [string]$rom1, [string]$rom2, [string]$save1, [string]$save2, [bool]$make3ds = $false) {
+    if ([string]::IsNullOrWhiteSpace($cia)) { throw 'Choose where to save the .cia (Browse...).' }
+    if ((Test-Path -LiteralPath $cia -PathType Container) -or -not $cia.ToLower().EndsWith('.cia')) {   # a folder (or a name without .cia) picked: name the files automatically
+        $cia = if (Test-Path -LiteralPath $cia -PathType Container) { Join-Path $cia 'Golden Sun - Dual Screen.cia' } else { $cia + '.cia' }
+    }
     $makerom = Find-Tool 'makerom'
     $bannertool = Find-Tool 'bannertool'
     if (-not $makerom -or -not $bannertool) { throw 'makerom.exe and bannertool.exe are needed for a CIA: put them in a "bin" folder next to this script (or on PATH).' }
@@ -183,7 +187,7 @@ function Build-Cia([string]$console, [string]$cia, [string]$rom1, [string]$rom2,
             if ($LASTEXITCODE -or -not (Test-Path $c3)) { throw ("makerom could not make the .3ds:`n" + ($mr3 -join "`n")) }
             $log.Add("3DS image: $c3 ($([math]::Round((Get-Item $c3).Length / 1MB, 1)) MB) - open it in an emulator such as Azahar (File > Open); it does not run on a console")
         }
-        $log.Add('Install it with FBI on the console (or File > Install CIA in Azahar), then start GoldenSun3DS from the HOME Menu.')
+        $log.Add('Install it with FBI on the console (or File > Install CIA in Azahar), then start Golden Sun - Dual Screen Companion from the HOME Menu.')
         $log.Add('Saves and settings go to sdmc:/3ds/GoldenSun3DS/ on the SD card.')
         if ($save1 -or $save2) {
             Import-Saves (Split-Path -Parent $cia) $save1 $save2 $log
@@ -315,7 +319,7 @@ $btnOut = New-Button 'Browse...' 490 302 110 30
 $btnOut.Add_Click({
     if ($rCia.Checked) {
         $d = New-Object System.Windows.Forms.SaveFileDialog
-        $d.Filter = 'CIA (*.cia)|*.cia'; $d.FileName = 'GoldenSun3DS.cia'
+        $d.Filter = 'CIA (*.cia)|*.cia'; $d.FileName = 'Golden Sun - Dual Screen.cia'
         if ($d.ShowDialog() -eq 'OK') { $boxOut.Text = $d.FileName }
     } else {
         $d = New-Object System.Windows.Forms.FolderBrowserDialog
