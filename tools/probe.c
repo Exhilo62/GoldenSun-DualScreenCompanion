@@ -77,6 +77,20 @@ int main(int argc, char** argv) {
 			for (uint32_t a = 0x03000000; a < 0x03008000; ++a) fputc(core->busRead8(core, a), f);
 			for (uint32_t a = 0x02000000; a < 0x02040000; ++a) fputc(core->busRead8(core, a), f);
 			fclose(f);
+		} else if (!strcmp(cmd, "iotrace")) {   // iotrace REG FRAMES [KEYS]: report each change of an I/O register's written value (works for write-only registers)
+			unsigned reg = 0, frames = 0; char keys[32] = {0};
+			sscanf(arg, "%x %u %31s", &reg, &frames, keys);
+			core->setKeys(core, keymask(keys));
+			struct ARMCore* cpu = core->cpu;
+			struct GBA* gba = core->board;
+			uint16_t prev = gba->memory.io[(reg & 0x3FF) >> 1]; int prints = 0;
+			uint32_t start = core->frameCounter(core);
+			while (core->frameCounter(core) - start < frames && prints < 40) {
+				core->step(core);
+				uint16_t cur = gba->memory.io[(reg & 0x3FF) >> 1];
+				if (cur != prev) { printf("io %03X %04X->%04X pc=%08X lr=%08X r0=%08X r1=%08X r2=%08X r3=%08X r4=%08X r5=%08X\n", reg, prev, cur, cpu->gprs[15], cpu->gprs[14], cpu->gprs[0], cpu->gprs[1], cpu->gprs[2], cpu->gprs[3], cpu->gprs[4], cpu->gprs[5]); prev = cur; prints++; }
+			}
+			core->setKeys(core, 0);
 		} else if (!strcmp(cmd, "vdump")) {   // vdump FILE: palette RAM (1 KB), VRAM (96 KB), OAM (1 KB), I/O registers (0x60 bytes)
 			FILE* f = fopen(arg, "wb");
 			for (uint32_t a = 0x05000000; a < 0x05000400; ++a) fputc(core->busRead8(core, a), f);
