@@ -131,16 +131,11 @@ static uint32_t mapKeys(u32 held) {
 // 240x160 RGB565 (row-major) -> top screen (400x240, column-major and flipped): 1x centred, or FILL stretch (nearest, 5/3 wide x 3/2 tall).
 // The source is read in blocks of 8 columns so every cache line is used once; FILL expands each block column into one or two destination columns.
 #define BLK 8
-static void blitTop(const uint16_t* src, size_t stride, int mode) {
-	uint16_t* fb = (uint16_t*) gfxGetFramebuffer(GFX_TOP, GFX_LEFT, NULL, NULL);
-	static uint16_t* clearedFb[2];
+// Draws the top screen into the private buffer fb (400x240, column-major); presentFrame() copies it to the real framebuffer.
+static void blitTop(uint16_t* fb, const uint16_t* src, size_t stride, int mode) {
 	static int clearedMode = -1;
 	if (mode == TOP_1X) {
-		if (clearedMode != mode) { clearedFb[0] = clearedFb[1] = NULL; clearedMode = mode; }
-		if (fb != clearedFb[0] && fb != clearedFb[1]) {   // the black border only needs painting once per framebuffer
-			memset(fb, 0, 400 * 240 * sizeof(uint16_t));
-			clearedFb[clearedFb[0] ? 1 : 0] = fb;
-		}
+		if (clearedMode != mode) { memset(fb, 0, 400 * 240 * sizeof(uint16_t)); clearedMode = mode; }   // the black border only needs painting once
 		uint16_t col[BLK][160];
 		for (int x0 = 0; x0 < 240; x0 += BLK) {
 			for (int y = 0; y < 160; ++y) {
@@ -538,11 +533,22 @@ static u64 swapTick;
 
 static uint16_t jobFrame[256 * 160], jobTop[256 * 160];
 
+// Everything is drawn into these private buffers first, so a job never has to wait for the display before it starts painting: the wait for the
+// vblank happens at the end, right before the finished picture is copied into the framebuffer and swapped in.
+static uint16_t privTop[400 * 240], privBot[320 * 240];
+static bool botDrawn;   // the bottom buffer was repainted by the last job (it is only copied then)
+
+static void presentFrame(void) {
+	memcpy(gfxGetFramebuffer(GFX_TOP, GFX_LEFT, NULL, NULL), privTop, sizeof(privTop));
+	if (botDrawn) memcpy(gfxGetFramebuffer(GFX_BOTTOM, GFX_LEFT, NULL, NULL), privBot, sizeof(privBot));
+}
+
 static void processJob(Job* j) {
+	botDrawn = false;
 	u64 t0 = svcGetSystemTick();
 	if (j->forgetMap) mapForgetTransition();
 	if (j->clearMap) mapClearCurrent();
-	blitTop(j->top, 256, j->ui.topScale);
+	blitTop(privTop, j->top, 256, j->ui.topScale);
 	u64 t1 = svcGetSystemTick();
 	uiSetGbaFrame(j->frame, 256);
 	if (j->doMap) mapUpdate(j->frame, 256, &j->gs);
@@ -567,7 +573,8 @@ static void processJob(Job* j) {
 	if (h != jobLastHash) { jobLastHash = h; jobDirty = 2; }
 	if (jobDirty > 0) {
 		--jobDirty;
-		uiDraw((uint16_t*) gfxGetFramebuffer(GFX_BOTTOM, GFX_LEFT, NULL, NULL), &j->gs, &j->ui);
+		uiDraw(privBot, &j->gs, &j->ui);
+		botDrawn = true;
 	}
 	if ((j->saveMap || j->finalSave) && mapDirty()) {   // serialise now (fast, in memory); the SD write happens in slices from the main loop
 		size_t n = 0;
@@ -587,10 +594,10 @@ static void workerMain(void* arg) {
 		svcInvalidateProcessDataCache(CUR_PROCESS_HANDLE, (u32) &job, sizeof(job));
 		svcInvalidateProcessDataCache(CUR_PROCESS_HANDLE, (u32) jobFrame, sizeof(jobFrame));
 		svcInvalidateProcessDataCache(CUR_PROCESS_HANDLE, (u32) jobTop, sizeof(jobTop));
-		// The previous swap only takes effect at a vblank and the buffer we are about to paint is the one still on screen until then.
-		// Waiting here (not after the swap) keeps the job reported as done as soon as it is presented.
+		processJob(&job);   // paints into the private buffers: no waiting for the display here
+		// The previous swap only takes effect at a vblank and the framebuffer we are about to fill is the one still on screen until then.
 		if (swapPending && svcGetSystemTick() - swapTick < (u64) 268111 * 17) gspWaitForVBlank();   // a swap older than a frame has already landed
-		processJob(&job);
+		presentFrame();
 		gfxFlushBuffers();
 		gfxSwapBuffers();
 		swapPending = true;
@@ -1201,6 +1208,7 @@ int main(void) {
 				LightSemaphore_Release(&jobReady, 1);
 			} else {
 				processJob(&job);
+				presentFrame();
 				gfxFlushBuffers();
 				gfxSwapBuffers();
 				gspWaitForVBlank();   // the next frame is drawn into the buffer that was on screen until this vblank

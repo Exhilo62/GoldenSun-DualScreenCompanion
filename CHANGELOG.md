@@ -44,4 +44,6 @@ Goal of this release: find obvious problems. Everything below is new in a first 
 
 - Fixed the party list showing Ivan instead of Jenna after Jenna joins (stale byte in the game's party-order list made the reader fall back to the default order).
 
+- Smoother top screen: the drawing thread now paints into private buffers and only waits for the display at the very end, so far fewer frames are dropped (the log showed a third of the top-screen frames being skipped).
+
 **Known issues**: see the README ("Known limitations in this beta").
