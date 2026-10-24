@@ -9,7 +9,7 @@ Copy-Item "$root\build\app\GoldenSun3DS.3dsx" $out -Force
 $strip = @('C:\devkitPro\devkitARM\bin\arm-none-eabi-strip.exe', '/opt/devkitpro/devkitARM/bin/arm-none-eabi-strip.exe') | Where-Object { Test-Path $_ } | Select-Object -First 1
 if ($strip) { & $strip -o "$out\GoldenSun3DS.elf" "$root\build\app\GoldenSun3DS.elf" } else { Copy-Item "$root\build\app\GoldenSun3DS.elf" $out -Force }
 Copy-Item "$root\tools\patcher\GoldenSun3DS-Patcher.ps1", "$root\tools\patcher\Install.bat", "$root\tools\patcher\GoldenSun3DS.rsf" $out -Force
-Copy-Item "$root\assets\icon.png", "$root\assets\banner.png", "$root\assets\silence.wav", "$root\assets\badge.png" $out -Force
+Copy-Item "$root\assets\icon.png", "$root\assets\banner.png", "$root\assets\silence.wav", "$root\assets\badge.png", "$root\assets\banner3d.cgfx" $out -Force
 Copy-Item "$root\tools\patcher\bin\*.exe" "$out\bin" -Force -ErrorAction SilentlyContinue
 & "$root\tools\patcher\MakeLauncher.ps1" -OutDir $out   # GoldenSun3DS-Patcher.exe, the double-click launcher
 $vh = Get-Content "$root\src\version.h" -Raw

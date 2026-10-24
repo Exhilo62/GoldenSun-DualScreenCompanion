@@ -17,3 +17,6 @@ Golden Sun and Golden Sun: The Lost Age are (c) Nintendo / Camelot Software Plan
 - the title logo (`assets/reference/logo.png`) and app icon (`assets/reference/icon_source.png`), fan-made renditions of the official artwork.
 
 This is an unofficial fan project. If a rights holder objects, these assets will be removed on request.
+
+## 3D banner
+`assets/banner3d.cgfx` was converted once with [pycgfx](https://github.com/skyfloogle/pycgfx) (skyfloogle; revision 1f78850; the tool is not included here). The relief model in `assets/banner3d/` comes from an asset kit derived from fan art of the Golden Sun logo (Golden Sun is (c) Nintendo / Camelot). See `docs/BANNER3D.md`.
