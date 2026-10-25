@@ -36,3 +36,8 @@ android/app/build/
 android/app/.cxx/
 android/local.properties
 android/build_log.txt
+
+# Signing material never goes in git
+android/keystore.properties
+*.jks
+*.keystore

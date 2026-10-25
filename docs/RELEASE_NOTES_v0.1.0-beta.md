@@ -9,6 +9,9 @@ First public test build. **We are looking for obvious problems**, so please try 
 
 No ROMs are included. You need your own dumps.
 
+### Android (beta)
+**GoldenSunDualScreen_v0.1.0-beta.apk**: the same app for Android phones, tablets and dual-screen handhelds (game on one display, companion UI on the other). Allow installs from unknown sources, open the `.apk`, tap **Add ROM file** and pick your own ROM. Controller support included (the on-screen buttons can be hidden, or hide themselves when a controller is connected). It has only been tested on an emulator so far: sound, speed and the dual-screen output on real devices are the things to report.
+
 ### What to test
 - Start-up: the pick screen (shows `v0.1.0 beta`), loading each game, autosave resume.
 - Bottom-screen tabs in the field and in battle; the Map tab (the whole area is drawn from your ROM with your position marked).
@@ -19,7 +22,7 @@ No ROMs are included. You need your own dumps.
 - **Old 3DS (and emulators at default speed) run slowly**, roughly 25-35 fps, and the automatic helpers may not be able to fix it. In Azahar use New 3DS mode with the CPU clock at about 300%: see `docs/EMULATORS.md`.
 - Old 3DS cannot reach full speed; fast forward cannot beat what the console can emulate.
 - The Lost Age has the same tabs as Golden Sun; its world map is still the stitched live map, and the maps are only drawn from the ROM for the USA / Europe cartridges.
-- Repeat round, Djinn set Save / Apply / All Set and Equip best on real hardware are lightly tested. Android dual-screen devices are untested.
+- Repeat round, Djinn set Save / Apply / All Set and Equip best on real hardware are lightly tested. The Android app has not been run on a real device yet.
 
 ### Reporting
 Open an issue with: what you did, what you expected, what happened, New or Old 3DS (or Azahar), real hardware or emulator, and the Menu footer line.

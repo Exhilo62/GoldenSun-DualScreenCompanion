@@ -36,8 +36,16 @@ Full step-by-step guide, sound details and troubleshooting: **[docs/EMULATORS.md
 > roughly 25-35 fps, and **the automatic helpers (frame skip, Mute if slow) may not be able to fix that**. The game then plays in slow motion and the sound
 > is slow and choppy. This is a limit of the hardware, not a bug, and fast forward is not offered for the same reason.
 
+## Android app (beta)
+**GoldenSunDualScreen_v0.1.0-beta.apk** (attached to the release) runs the same app natively on Android: the game on top and the companion UI below (portrait), side by side (landscape), or, on a **dual-screen handheld** such as the Retroid Pocket Duo, the game on one display and the companion UI on the other. You add your own ROM with a file picker; it is copied into the app and never leaves your device.
+- Install: allow "install unknown apps" for your browser or file manager, open the `.apk`. It is signed with the project's own key (not from Google Play).
+- First start: tap **Add ROM file**, choose your Golden Sun / The Lost Age `.gba`, then **Play**.
+- Controls: on-screen buttons (a small **PAD** chip cycles Auto / On / Off; Auto hides them while a controller is connected), game controllers (east = A, south = B, shoulders = L / R, Start / Back, D-pad or left stick, west button or right trigger = fast forward), or a keyboard.
+- Autosave is written when you leave the app.
+- **Status:** beta. It has been run on an Android emulator only (ROM picker, layouts, touch, saving); sound, speed and the dual-screen output on real hardware are untested, so please report how it goes (device model, Android version). Details: [android/README.md](android/README.md).
+
 ## Roadmap
-This is built for the New 3DS XL; support for other devices (a desktop build, then an Android `.apk` running natively with Android audio) is being worked on. Until then, feel free to try the `.3ds` / `.cia` on other devices and report how it goes. Details: **[docs/ROADMAP.md](docs/ROADMAP.md)**.
+This is built for the New 3DS XL; support for other devices (a desktop build, then an Android `.apk` running natively with Android audio) is being worked on. The Android beta above is the first part. Until then, feel free to try the `.3ds` / `.cia` on other devices and report how it goes. Details: **[docs/ROADMAP.md](docs/ROADMAP.md)**.
 
 ## Menu options (Menu tab)
 These start **Off** on a fresh install; turn on the ones you want.
@@ -57,7 +65,7 @@ Full details: [docs/FEATURES.md](docs/FEATURES.md).
 - **Old 3DS, and emulators at their default speed, run slow.** Roughly 25-35 fps; automatic frame skip and **Mute if slow** may not be able to compensate (slow motion, choppy sound). See [docs/EMULATORS.md](docs/EMULATORS.md) for the emulator settings that fix it on a fast PC or phone.
 - **Speed depends on the console.** Old 3DS cannot reach full speed. Fast forward cannot go faster than your console can emulate; it is capped to keep the picture smooth. The Menu footer shows the real numbers (`e` = ms per emulated frame, `c` = CPU benchmark: about 30 means the New 3DS clock is active, about 90 means it is not).
 - The Lost Age has the same tabs and touch actions as Golden Sun; its world map is not drawn from the ROM yet, and a few touch actions (Repeat round, Equip best with better gear) were only lightly tested there (see [docs/LOST_AGE.md](docs/LOST_AGE.md)).
-- **Lightly tested**: Repeat round, Djinn set Save / Apply / All Set, Equip best on real hardware. Android dual-screen devices have not been tested (only Azahar on Windows).
+- **Lightly tested**: Repeat round, Djinn set Save / Apply / All Set, Equip best on real hardware. The Android app has only been run on an emulator (no real phone or dual-screen handheld yet).
 - **Sound safety net**: if audio start-up ever crashes a console, the next launch runs without sound instead of crashing again (a "Sound off" message shows); delete `sdmc:/3ds/GoldenSun3DS/audio_crash.flag` to try sound again. (The first .cia build crashed at game start on a New 3DS because the .cia did not declare the DSP memory range; fixed in the current build.)
 - **Sound in emulators**: in Azahar / Citra the app writes a placeholder `dspfirm.cdc` into the emulator's virtual SD on first start (the audio library demands the file; the emulator's built-in audio ignores its contents), so no dump from a real 3DS is needed. Sound only plays at the right pitch and speed if the emulator runs the game at full speed: set Azahar's CPU clock to about 300-400% and enable New 3DS mode, otherwise the audio is slow and choppy. The Menu tab footer shows `(no audio)` while sound is unavailable and `(muted: slow)` when **Mute if slow** is silencing a device that cannot hold full speed.
 - Autosave is on by default and resumes where you quit. Turn it off in **Menu** if you would rather start fresh.

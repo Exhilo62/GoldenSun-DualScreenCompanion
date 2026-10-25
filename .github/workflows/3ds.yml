@@ -1,0 +1,40 @@
+name: 3DS build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: devkitpro/devkitarm
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Tools
+        run: |
+          apt-get update && apt-get install -y cmake make python3 git
+          dkp-pacman -Sy --noconfirm 3ds-dev
+
+      - name: mGBA core for the 3DS (docs/BUILDING.md, step 2)
+        run: |
+          mkdir -p build/mgba-3ds && cd build/mgba-3ds
+          cmake ../../third_party/mgba -DCMAKE_TOOLCHAIN_FILE=$PWD/../../third_party/mgba/src/platform/3ds/CMakeToolchain.txt \
+            -DCMAKE_BUILD_TYPE=Release -DBUILD_STATIC=ON -DBUILD_LTO=ON -DM_CORE_GB=OFF -DUSE_DEBUGGERS=OFF -DUSE_PNG=OFF -DUSE_LIBZIP=OFF \
+            -DUSE_SQLITE3=OFF -DUSE_FFMPEG=OFF -DUSE_EDITLINE=OFF -DUSE_EPOXY=OFF -DBUILD_QT=OFF -DBUILD_SDL=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+          make mgba zlibstatic
+
+      - name: App
+        run: make
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GoldenSun3DS-3dsx
+          path: |
+            build/app/GoldenSun3DS.3dsx
+            build/app/GoldenSun3DS.smdh

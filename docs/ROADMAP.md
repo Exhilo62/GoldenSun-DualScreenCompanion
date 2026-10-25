@@ -12,7 +12,7 @@ Results outside the New 3DS XL are untested, so reports (what device, what speed
 ## In progress / planned
 1. **Shared core, thin platform layer.** Separate the game logic and companion UI (RAM reading, party, Djinn, map, bestiary, touch UI) from the 3DS-specific parts (screens, audio, input, threads, SD card). The 3DS build keeps working throughout.
 2. **Desktop build (Windows / Linux).** The first non-3DS target, because it is quick to test. Native speed, native audio, no 3DS firmware files.
-3. **Android app (.apk).** Runs the same mGBA core natively with Android audio and touch, the game on top and the companion UI below (portrait) or side by side (landscape). You pick your own ROM with a file picker.
+3. **Android app (.apk), beta available (v0.1.0-beta, emulator-tested only).** Runs the same mGBA core natively with Android audio and touch, the game on top and the companion UI below (portrait) or side by side (landscape). You pick your own ROM with a file picker.
 4. **Features that need more speed** (such as real fast forward) return on the faster targets.
 
 No dates yet. Progress will be listed in the [changelog](../CHANGELOG.md).

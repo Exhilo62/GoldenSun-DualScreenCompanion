@@ -4,6 +4,19 @@ plugins {
 
 def sdlDir = System.getenv('SDL2_DIR') ?: project.property('sdl2.dir')
 
+// The version lives in src/version.h (one place for the 3DS and Android builds): "0.1.0" + stage "beta" -> versionName 0.1.0-beta, versionCode 100.
+def versionH = file('../../src/version.h').text
+def appVersion = (versionH =~ /APP_VERSION\s+"([^"]+)"/)[0][1]
+def appStage = (versionH =~ /APP_STAGE\s+"([^"]*)"/)[0][1]
+def (vMajor, vMinor, vPatch) = appVersion.tokenize('.').collect { it.toInteger() }
+
+// Release signing: android/keystore.properties (storeFile, storePassword, keyAlias, keyPassword; not in git) or, in CI, the environment variables
+// ANDROID_KEYSTORE_FILE / ANDROID_KEYSTORE_PASSWORD / ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD. Without either, the release build is left unsigned.
+def ksProps = new Properties()
+def ksFile = rootProject.file('keystore.properties')
+if (ksFile.exists()) ksFile.withInputStream { ksProps.load(it) }
+def ksPath = System.getenv('ANDROID_KEYSTORE_FILE') ?: ksProps.getProperty('storeFile')
+
 android {
     namespace 'com.exhilo.goldensundualscreen'
     compileSdk 34
@@ -13,8 +26,8 @@ android {
         applicationId 'com.exhilo.goldensundualscreen'
         minSdk 21
         targetSdk 34
-        versionCode 1
-        versionName '0.1.0-beta'
+        versionCode vMajor * 10000 + vMinor * 100 + vPatch
+        versionName appStage ? "${appVersion}-${appStage}" : appVersion
         externalNativeBuild {
             cmake {
                 arguments "-DANDROID_STL=c++_static", "-DSDL2_DIR=${sdlDir}"
@@ -28,9 +41,20 @@ android {
         }
     }
     sourceSets.main.java.srcDirs += ["${sdlDir}/android-project/app/src/main/java"]
+    signingConfigs {
+        if (ksPath) {
+            release {
+                storeFile file(ksPath)
+                storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD') ?: ksProps.getProperty('storePassword')
+                keyAlias System.getenv('ANDROID_KEY_ALIAS') ?: ksProps.getProperty('keyAlias')
+                keyPassword System.getenv('ANDROID_KEY_PASSWORD') ?: ksProps.getProperty('keyPassword')
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
+            if (ksPath) signingConfig signingConfigs.release
         }
     }
     lint {
