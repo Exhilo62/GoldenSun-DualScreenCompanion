@@ -386,6 +386,17 @@ bool appProcessJob(Job* j, uint16_t* botFb) {
 	return botDrawn;
 }
 
+// Leaving the foreground (Android): the process may be killed without notice, so everything is written now. Called by the platform from the
+// emulation thread, between frames (from inside the event poll).
+static struct mCore* saveCore;
+static UiView* saveUi;
+void appSaveNow(void) {
+	if (!saveCore || !saveUi) return;
+	if (saveUi->autoSave) writeState(saveCore, autoPath);
+	if (bestDirty()) bestSave(bestPath);
+	if (!plTwoCore() && mapDirty()) mapSave(mapsPath);
+}
+
 int appRun(void) {
 	gsGamePath(GS_GAME_1, "settings.bin", settingsPath, sizeof(settingsPath));   // shared by both games
 	gsGamePath(GS_GAME_1, "perflog.txt", perflogPath, sizeof(perflogPath));   // opt-in: create an empty file with this name and a line is appended every ten seconds
@@ -443,6 +454,7 @@ int appRun(void) {
 	static GsState gs;
 	uiInit(&ui);
 	loadDjinnSets(&ui);
+	saveCore = core; saveUi = &ui;
 	if (plAudioSkipped()) { uiToast(&ui, "Sound off (see notes)"); ui.toastFrames = 400; }
 	bgWriteInit(plTwoCore() ? 2 : -1);   // SD writes run on their own low-priority thread
 	mapInit();
@@ -477,11 +489,6 @@ int appRun(void) {
 		u64 t0 = plTicks();
 		PlInput in;
 		plPollInput(&in);
-		if (in.saveNow) {   // leaving the foreground: the process may be killed without notice, so everything is written now
-			if (ui.autoSave) writeState(core, autoPath);
-			if (bestDirty()) bestSave(bestPath);
-			if (!plTwoCore() && mapDirty()) mapSave(mapsPath);
-		}
 		gsReadState(&gs, memRead, core);
 		gs.bldcnt = ((struct GBA*) core->board)->memory.io[0x50 >> 1];
 		bestObserve(&gs);
@@ -989,6 +996,7 @@ int appRun(void) {
 	}
 
 	appJob.doMap = appJob.clearMap = appJob.forgetMap = appJob.saveMap = false;
+	saveCore = NULL;
 	appJob.finalSave = true;   // the worker owns the map: it writes the final copy
 	plJobFinish(&appJob);
 	bgWriteFlush();

@@ -17,4 +17,4 @@ Autosave: when the app leaves the foreground (home button, app switch, screen of
 - Dual-screen handhelds (Retroid Pocket Duo and similar): the screen the app is started on is the touch screen with the companion UI (no on-screen buttons); the other display shows the GBA picture. To swap them, start the app on the other screen.
 - Game controllers work (east / south button = A / B, shoulders = L / R, right trigger = fast forward).
 
-Status: builds and packages; not yet run on a device or emulator (ROM picker, dual-screen output and save-on-background are untested).
+Status: tested on an Android 34 emulator (picker, layouts, touch, save on Home). Not yet tested: dual-screen output, sound, real hardware.

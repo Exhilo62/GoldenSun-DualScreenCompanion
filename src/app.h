@@ -28,4 +28,5 @@ int appRun(void);   // the game loop; the platform's main() calls plInit() and t
 // The platform-neutral part of a job: map stitching, slot thumbnails, message log, change detection and the bottom-screen drawing into botFb
 // (320x240, the 3DS framebuffer layout). Returns true when botFb was repainted.
 bool appProcessJob(Job* j, uint16_t* botFb);
+void appSaveNow(void);   // write autosave, bestiary and map at once (the app is leaving the foreground)
 #endif

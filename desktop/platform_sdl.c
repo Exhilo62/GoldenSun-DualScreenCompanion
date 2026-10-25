@@ -259,7 +259,8 @@ static void drawControls(void) {
 		if (i == CT_A || i == CT_B) fillCircle(r.x + r.w / 2, r.y + r.h / 2, r.w / 2);
 		else SDL_RenderFillRect(ren, &r);
 		SDL_SetRenderDrawColor(ren, 255, 255, 255, 220);
-		int px = r.h / 12 > 1 ? r.h / 12 : 1;
+		int px = r.h / 12 > 1 ? r.h / 12 : 1, chars = (int) strlen(ctl[i].label);
+		while (px > 1 && chars * 6 * px > r.w - 4) --px;   // the label must fit its button
 		drawText(ctl[i].label, r.x + r.w / 2, r.y + r.h / 2, px);
 	}
 }
@@ -278,28 +279,24 @@ static void openPads(void) {
 	}
 }
 
-// Leaving the foreground (Android): the lifecycle watcher asks for a save and waits until the loop has delivered the request (1 -> 2) and come back for
-// the next poll (2 -> 3), which means the app finished writing. gameRunning stops it from waiting before the loop exists.
-static volatile int saveReq;
-static volatile bool gameRunning;
+// Leaving the foreground (Android): SDL raises the event on the emulation thread from inside the event poll, i.e. between frames, so the app can
+// save right there. Events from any other thread are ignored.
+static SDL_threadID loopThread;
 static int SDLCALL lifecycleWatch(void* ud, SDL_Event* e) {
 	(void) ud;
-	if (e->type == SDL_APP_WILLENTERBACKGROUND && gameRunning) {
-		saveReq = 1;
-		for (int i = 0; i < 300 && saveReq != 3; ++i) SDL_Delay(5);
-		saveReq = 0;
-	}
+	if (e->type == SDL_APP_WILLENTERBACKGROUND && loopThread && SDL_ThreadID() == loopThread) appSaveNow();
 	return 0;
 }
 
+static float tapX, tapY;
+static int tapHold;
+
 void plPollInput(PlInput* in) {
-	gameRunning = true;
-	in->saveNow = false;
-	if (saveReq == 2) saveReq = 3;
-	else if (saveReq == 1) { in->saveNow = true; saveReq = 2; }
+	loopThread = SDL_ThreadID();
 	SDL_Event e;
 	while (SDL_PollEvent(&e)) {
 		if (e.type == SDL_QUIT) quitRequested = true;
+		if (e.type == SDL_FINGERDOWN) { tapX = e.tfinger.x; tapY = e.tfinger.y; tapHold = 4; }   // a very quick tap must still be seen for a few frames
 		if (e.type == SDL_CONTROLLERDEVICEADDED || e.type == SDL_CONTROLLERDEVICEREMOVED) openPads();
 	}
 	layout();
@@ -348,6 +345,7 @@ void plPollInput(PlInput* in) {
 			if (fg) { px[np] = (int) (fg->x * outW); py[np] = (int) (fg->y * outH); ++np; }
 		}
 	}
+	if (tapHold > 0) { if (np == 0) { px[np] = (int) (tapX * outW); py[np] = (int) (tapY * outH); ++np; } --tapHold; }
 	int mx, my;
 	if ((SDL_GetMouseState(&mx, &my) & SDL_BUTTON_LMASK) && np < 11) { px[np] = mx * outW / (winW ? winW : 1); py[np] = my * outH / (winH ? winH : 1); ++np; }
 	in->touch = false;

@@ -211,7 +211,6 @@ void plPollInput(PlInput* in) {
 	in->tx = touch.px;
 	in->ty = touch.py;
 	in->turbo = (held & (KEY_Y | KEY_ZR)) != 0;   // hold Y / ZR
-	in->saveNow = false;
 }
 
 
