@@ -20,6 +20,7 @@ enum { TOP_1X, TOP_FILL, TOP_MODES };  // 1:1 centred | stretched to the full 40
 typedef struct {
 	int tab;
 	int itemChar;          // whose inventory the ITEMS tab shows
+	bool showHotkeys;      // the controls / hotkeys list replaces the tab content (Android and desktop builds only)
 	bool showKeys;         // the touch keyboard for the Lost Age password screen
 	bool roundSaved;       // set by main: a command round is recorded and can be repeated
 	bool roundRepeating;   // set by main: the recorded round is being replayed
@@ -108,6 +109,8 @@ void uiInit(UiView* v);
 void uiUpdate(UiView* v, const GsState* st, bool down, int x, int y, UiOutput* out);
 // True when the visible tab shows the live map (so map updates require a redraw).
 bool uiShowsMap(const UiView* v);
+// Set by the platform layers that have hotkeys (Android, desktop): adds a "Controls" button to the Menu tab. The 3DS build leaves it off.
+extern bool uiShowHotkeys;
 void uiToast(UiView* v, const char* msg);
 // Renders into a 320x240 RGB565 framebuffer in 3DS layout: fb[x * 240 + (239 - y)].
 void uiDraw(uint16_t* fb, const GsState* st, const UiView* v);

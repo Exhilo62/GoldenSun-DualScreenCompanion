@@ -5,13 +5,19 @@ import android.content.Context;
 import android.content.Intent;
 import android.hardware.display.DisplayManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Display;
 import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
+import android.view.Window;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
 import android.view.WindowManager;
 
 import org.libsdl.app.SDLActivity;
@@ -38,6 +44,42 @@ public class MainActivity extends SDLActivity {
         @Override public void onDisplayChanged(int id) { }
     };
 
+    /**
+     * Hides the status bar and the navigation bar / gesture pill and keeps them hidden: Android shows them again after a touch on the other display, a dialog or
+     * the file picker, so this runs on every focus change and whenever the system reports that the bars came back. A swipe from the edge still shows them for a moment.
+     */
+    static void hideSystemBars(final Window w) {
+        if (w == null) return;
+        final View decor = w.getDecorView();
+        if (Build.VERSION.SDK_INT >= 28) {
+            WindowManager.LayoutParams lp = w.getAttributes();
+            lp.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+            w.setAttributes(lp);
+        }
+        if (Build.VERSION.SDK_INT >= 30) {
+            WindowInsetsController c = w.getInsetsController();
+            if (c != null) {
+                c.hide(WindowInsets.Type.systemBars());
+                c.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            }
+        } else {
+            decor.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                    | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+        }
+        decor.setOnSystemUiVisibilityChangeListener(new View.OnSystemUiVisibilityChangeListener() {
+            @Override public void onSystemUiVisibilityChange(int visibility) {
+                if ((visibility & View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) == 0)
+                    new Handler(Looper.getMainLooper()).postDelayed(new Runnable() { @Override public void run() { hideSystemBars(w); } }, 1500);
+            }
+        });
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) hideSystemBars(getWindow());
+    }
+
     @Override
     protected String[] getLibraries() {
         return new String[] { "SDL2", "main" };
@@ -48,12 +90,14 @@ public class MainActivity extends SDLActivity {
         super.onCreate(savedInstanceState);
         displays = (DisplayManager) getSystemService(Context.DISPLAY_SERVICE);
         displays.registerDisplayListener(listener, null);
+        hideSystemBars(getWindow());
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         refreshTopScreen();
+        hideSystemBars(getWindow());
     }
 
     @Override
@@ -111,6 +155,7 @@ public class MainActivity extends SDLActivity {
                         return true;
                     }
                 });
+                hideSystemBars(getWindow());   // no status / navigation bar over the picture (or the UI) on this display either
                 view.setFocusable(false);
                 view.setFocusableInTouchMode(false);
                 setContentView(view);
@@ -118,6 +163,7 @@ public class MainActivity extends SDLActivity {
         };
         try {
             topScreen.show();
+            hideSystemBars(topScreen.getWindow());   // now attached: the insets controller exists
         } catch (RuntimeException e) {   // the display vanished between the lookup and show()
             topScreen = null;
         }

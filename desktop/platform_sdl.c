@@ -744,6 +744,7 @@ bool plChooseGame(GsGameId* out) {
 }
 
 bool plInit(void) {
+	uiShowHotkeys = true;   // this platform has hotkeys: the Menu tab gets a "Controls" list
 	SDL_SetHint(SDL_HINT_ANDROID_TRAP_BACK_BUTTON, "1");   // Back must not close the app in the middle of a game
 	SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");   // fingers are read directly (several at once: buttons plus the touch screen)
 	SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "0");

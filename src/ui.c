@@ -44,6 +44,7 @@ static const uint16_t tabAccent[TAB_COUNT] = {RGB(236, 188, 68), RGB(80, 170, 25
 #define TAB_GAP 3
 #define TAB_Y 3
 #define TAB_H 44
+bool uiShowHotkeys;
 #define CONTENT_Y 50
 #define CONTENT_H 158
 #define FOOT_Y 210
@@ -71,8 +72,8 @@ static int logTotalHeight(void);
 
 // Menu tab buttons: two columns of five. "Fast forward" and "FF speed" are hidden (a 3DS cannot emulate fast enough for them to be useful): they
 // are listed after MB_COUNT so they are neither drawn nor tapped; holding Y / ZR still speeds up as far as the console allows.
-enum { MB_SLOTS, MB_AUTOSAVE, MB_MUTE, MB_SCALE, MB_HIDEMENU, MB_LOG, MB_BEST, MB_REWIND, MB_COUNT, MB_CLEARMAP, MB_FAST, MB_SPEED };   // Clear map, Fast forward and FF speed are hidden (listed after MB_COUNT: neither drawn nor tapped)
-static const char* const menuLabels[MB_COUNT] = {"Save slots", "Autosave", "Mute if slow", "Top screen", "Menus below", "Message log", "Bestiary", "Rewind 5s"};
+enum { MB_SLOTS, MB_AUTOSAVE, MB_MUTE, MB_SCALE, MB_HIDEMENU, MB_LOG, MB_BEST, MB_REWIND, MB_HOTKEYS, MB_COUNT, MB_CLEARMAP, MB_FAST, MB_SPEED };   // Clear map, Fast forward and FF speed are hidden (listed after MB_COUNT: neither drawn nor tapped)
+static const char* const menuLabels[MB_COUNT] = {"Save slots", "Autosave", "Mute if slow", "Top screen", "Menus below", "Message log", "Bestiary", "Rewind 5s", "Controls"};
 #define MENU_W 150
 #define MENU_H 28
 #define MENU_Y0 56
@@ -309,6 +310,10 @@ void uiUpdate(UiView* v, const GsState* st, bool down, int x, int y, UiOutput* o
 		if (!down) v->logDrag = false;
 		if (!(edge && y >= TAB_Y && y < TAB_Y + TAB_H)) return;
 	}
+	if (v->showHotkeys) {   // the controls list: Back to leave; only a tab tap passes through
+		if (edge && inRect(x, y, 254, CONTENT_Y + 5, 54, 17)) { v->showHotkeys = false; return; }
+		if (!(edge && y >= TAB_Y && y < TAB_Y + TAB_H)) return;
+	}
 	if (v->showBest) {   // the bestiary: drag to scroll, Back to leave; only a tab tap passes through
 		int maxScroll = bestCount() * BEST_ROW - BEST_VIEW_H;
 		if (maxScroll < 0) maxScroll = 0;
@@ -357,6 +362,7 @@ void uiUpdate(UiView* v, const GsState* st, bool down, int x, int y, UiOutput* o
 			v->tab = t;
 			v->showLog = false;
 			v->showBest = false;
+			v->showHotkeys = false;
 			v->showSlots = false;
 			v->showChar = false;
 			v->showKeys = false;
@@ -440,6 +446,7 @@ void uiUpdate(UiView* v, const GsState* st, bool down, int x, int y, UiOutput* o
 	}
 	if (v->tab == TAB_MENU) {
 		for (int i = 0; i < MB_COUNT; ++i) {
+			if (i == MB_HOTKEYS && !uiShowHotkeys) continue;
 			if (!inRect(x, y, MENU_BX(i), MENU_BY(i), MENU_W, MENU_H)) continue;
 			switch (i) {
 			case MB_FAST: v->fastForward = !v->fastForward; break;
@@ -451,6 +458,7 @@ void uiUpdate(UiView* v, const GsState* st, bool down, int x, int y, UiOutput* o
 			case MB_HIDEMENU: v->hideMenus = !v->hideMenus; break;
 			case MB_LOG: v->showLog = true; v->logScroll = 0; break;
 			case MB_BEST: v->showBest = true; v->bestScroll = 0; break;
+			case MB_HOTKEYS: v->showHotkeys = true; break;
 			case MB_REWIND: out->rewind = true; break;
 			case MB_CLEARMAP: out->clearMap = true; break;
 			}
@@ -499,6 +507,30 @@ static int logTotalHeight(void) {
 	int h = 0;
 	for (int i = dlogCount() - 1; i >= 0; --i) h += wrapLines(dlogText(i), 280, 1, 0, 0, 0, 0, 0, false) * LOG_LINE + 8;
 	return h;
+}
+
+static void hotkeysView(void) {
+	gPanel(4, CONTENT_Y, 312, CONTENT_H, C_CARD_T, C_CARD_B, C_GOLD);
+	gPill(12, CONTENT_Y + 5, 150, 17, C_PANEL_T, C_PANEL_B, C_GOLD);
+	gTextCentered(87, CONTENT_Y + 9, "Controls", 1, C_GOLD);
+	gPanel(254, CONTENT_Y + 5, 54, 17, C_PANEL_T, C_PANEL_B, C_GOLD);
+	gTextCentered(281, CONTENT_Y + 9, "Back", 1, C_TEXT);
+	static const struct { const char* key; const char* what; } rows[] = {
+		{"Buttons", "A B L R Start Select, by label"},
+		{"D-pad / stick", "Move"},
+		{"Y or ZR", "Hold for fast forward"},
+		{"ZL", "Swap the two screens"},
+		{"Select + ZL", "Flip A/B and X/Y (if reversed)"},
+		{"PAD chip", "Touch buttons: Auto / On / Off"},
+		{"Keyboard", "Arrows, Z=A X=B A=L S=R"},
+		{"", "Enter=Start Backspace=Select"},
+		{"", "Tab=fast forward  W=swap screens"},
+	};
+	int y = CONTENT_Y + 29;
+	for (unsigned i = 0; i < sizeof(rows) / sizeof(rows[0]); ++i, y += 13) {
+		if (rows[i].key[0]) gText(12, y, rows[i].key, 0, C_GOLD);
+		gText(rows[i].key[0] ? 92 : 92, y, rows[i].what, 0, C_TEXT);
+	}
 }
 
 static void logView(const UiView* v) {
@@ -1247,6 +1279,7 @@ static void itemsTab(const GsState* st, const UiView* v) {
 
 static void menuTab(const UiView* v) {
 	for (int i = 0; i < MB_COUNT; ++i) {
+		if (i == MB_HOTKEYS && !uiShowHotkeys) continue;
 		int x = MENU_BX(i), y = MENU_BY(i);
 		bool on = (i == MB_FAST && v->fastForward) || (i == MB_HIDEMENU && v->hideMenus) || (i == MB_AUTOSAVE && v->autoSave) || (i == MB_MUTE && v->muteSlow);
 		gPanel(x, y, MENU_W, MENU_H, on ? C_ACTIVE_T : C_PANEL_T, on ? C_ACTIVE_B : C_PANEL_B, on ? C_GOLD : C_GOLD_DIM);
@@ -1420,6 +1453,11 @@ void uiDraw(uint16_t* framebuffer, const GsState* st, const UiView* v) {
 	}
 	if (v->showSlots) {
 		slotsView(v);
+		footer(st);
+		return;
+	}
+	if (v->showHotkeys) {
+		hotkeysView();
 		footer(st);
 		return;
 	}
