@@ -50,6 +50,9 @@ Full step-by-step guide, sound details and troubleshooting: **[docs/EMULATORS.md
 ## Roadmap
 This is built for the New 3DS XL; support for other devices (a desktop build, then an Android `.apk` running natively with Android audio) is being worked on. The Android beta above is the first part. Until then, feel free to try the `.3ds` / `.cia` on other devices and report how it goes. Details: **[docs/ROADMAP.md](docs/ROADMAP.md)**.
 
+## Battle panel
+It opens by itself when a battle starts. Tap another tab to look something up; the footer at the bottom left then turns gold and says "Tap here: back to the battle". Tap it to return.
+
 ## Menu options (Menu tab)
 These start **Off** on a fresh install; turn on the ones you want.
 - **Menus below:** when you open one of the game's own menus (items, Psynergy, ...) it is moved to the bottom screen as touch buttons, and the top screen keeps showing the field.

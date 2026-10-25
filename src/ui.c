@@ -350,6 +350,12 @@ void uiUpdate(UiView* v, const GsState* st, bool down, int x, int y, UiOutput* o
 		}
 	}
 	if (!edge) return;
+	if (v->inBattle && v->tab != TAB_BATTLE && inRect(x, y, 4, FOOT_Y, 204, FOOT_H)) {   // back to the battle screen (the tab bar has no Battle tab)
+		v->tab = TAB_BATTLE;
+		v->showLog = v->showBest = v->showSlots = v->showChar = v->showKeys = v->showHotkeys = false;
+		v->logDrag = v->bestDrag = false;
+		return;
+	}
 
 	if (y >= TAB_Y && y < TAB_Y + TAB_H) {
 		int t = (x - TAB_X) / (TAB_W + TAB_GAP);
@@ -1305,6 +1311,7 @@ static void waitingPanel(void) {
 	}
 }
 
+static bool footerBattleBack;   // set by uiDraw: a battle is going on but another tab is showing, so the footer is the way back
 static const char* footerNote;   // set by uiDraw: replaces the footer's second line (the timing readout on the Menu tab)
 
 // Gold octagonal coin like the game's menu icon: a thin dark outline, a faceted rim (bright top and bottom-left, dark right), and a golden face
@@ -1347,7 +1354,7 @@ static void footer(const GsState* st) {
 		gText(42, FOOT_Y + 17, gsGameMapped() ? "No game loaded yet" : "RAM map not set up", 0, C_DIM);
 		return;
 	}
-	gPanel(4, FOOT_Y, 204, FOOT_H, C_CARD_T, C_CARD_B, C_GOLD);
+	gPanel(4, FOOT_Y, 204, FOOT_H, footerBattleBack ? C_ACTIVE_T : C_CARD_T, footerBattleBack ? C_ACTIVE_B : C_CARD_B, C_GOLD);
 	gSprite(6, FOOT_Y + (FOOT_H - ICON_SMALL) / 2, artIconSmall(ICON_MAP));
 	gTextShadow(42, FOOT_Y + 5, areaName(st), 1, C_GOLD);
 	char id[48];
@@ -1393,6 +1400,8 @@ void uiDraw(uint16_t* framebuffer, const GsState* st, const UiView* v) {
 		return;
 	}
 	footerNote = v->tab == TAB_MENU && v->perf[0] ? v->perf : NULL;
+	footerBattleBack = v->inBattle && v->tab != TAB_BATTLE;
+	if (footerBattleBack) footerNote = "Tap here: back to the battle";
 	gSetBackgroundImage(artBackground());
 	gCornerSprite = artCorner();
 	gBackground(C_BG_TOP, C_BG_BOT);
