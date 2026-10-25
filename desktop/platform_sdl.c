@@ -130,12 +130,17 @@ bool plAudioSkipped(void) { return false; }
 // ---- layout and on-screen buttons -------------------------------------------------------------------------------------------
 // Portrait: the two screens stacked at the top, the buttons in the space below. Landscape: the screens side by side in the middle, the buttons in a
 // column on each side. Everything is in window pixels.
-enum { CT_DPAD, CT_A, CT_B, CT_L, CT_R, CT_START, CT_SELECT, CT_FF, CT_COUNT };
+enum { CT_DPAD, CT_A, CT_B, CT_L, CT_R, CT_START, CT_SELECT, CT_FF, CT_PADMODE, CT_COUNT };
 typedef struct { SDL_Rect r; const char* label; } Control;
 static Control ctl[CT_COUNT];
 static SDL_Rect topDst, botDst;
 static int outW = 640, outH = 800;
 static bool ffToggle;
+// Touch buttons: 0 = Auto (hidden while a game controller is connected), 1 = always shown, 2 = always hidden. A small chip below the FF button cycles it
+// and stays on screen (dimmed) when the buttons are hidden; the choice is kept in padmode.txt in the data folder.
+static int padMode;
+static bool padsShown;   // the touch buttons are currently on screen and active
+static int padsConnected(void);
 
 static SDL_Rect rc(float x, float y, float w, float h) { return (SDL_Rect) {(int) x, (int) y, (int) w, (int) h}; }
 
@@ -165,6 +170,7 @@ static void layout(void) {
 		ctl[CT_START].r = rc(W / 2.0f + u / 6, cy + ch - 1.2f * u, 2.2f * u, 0.8f * u);
 		ctl[CT_SELECT].r = rc(W / 2.0f - u / 6 - 2.2f * u, cy + ch - 1.2f * u, 2.2f * u, 0.8f * u);
 		ctl[CT_FF].r = rc(W / 2.0f - u, cy + 0.1f * u, 2 * u, 0.9f * u);
+		ctl[CT_PADMODE].r = rc(W / 2.0f - 1.3f * u, cy + 1.15f * u, 2.6f * u, 0.7f * u);
 	} else {        // landscape
 		float m = W / 6.0f;
 		float a = (W - 2 * m) / 560;
@@ -182,9 +188,10 @@ static void layout(void) {
 		ctl[CT_START].r = rc(W - m / 2 - 1.1f * u, H - 1.4f * u, 2.2f * u, 0.8f * u);
 		ctl[CT_SELECT].r = rc(m / 2 - 1.1f * u, H - 1.4f * u, 2.2f * u, 0.8f * u);
 		ctl[CT_FF].r = rc(W - m / 2 - u, 1.5f * u, 2 * u, 0.9f * u);
+		ctl[CT_PADMODE].r = rc(W - m / 2 - 1.3f * u, 2.5f * u, 2.6f * u, 0.7f * u);
 	}
 	ctl[CT_A].label = "A"; ctl[CT_B].label = "B"; ctl[CT_L].label = "L"; ctl[CT_R].label = "R";
-	ctl[CT_START].label = "START"; ctl[CT_SELECT].label = "SELECT"; ctl[CT_FF].label = "FF";
+	ctl[CT_START].label = "START"; ctl[CT_SELECT].label = "SELECT"; ctl[CT_FF].label = "FF"; ctl[CT_PADMODE].label = padMode == 0 ? "PAD AUTO" : padMode == 1 ? "PAD ON" : "PAD OFF";
 }
 
 // A 5x7 font for the few letters the buttons need: seven rows of five columns.
@@ -198,10 +205,15 @@ static const char* const glyphRows[][7] = {
 	{"11110", "10001", "10001", "11110", "10100", "10010", "10001"},   // R
 	{"01111", "10000", "10000", "01110", "00001", "00001", "11110"},   // S
 	{"11111", "00100", "00100", "00100", "00100", "00100", "00100"},   // T
+	{"11110", "10001", "10001", "10001", "10001", "10001", "11110"},   // D
+	{"10001", "11001", "10101", "10101", "10011", "10001", "10001"},   // N
+	{"01110", "10001", "10001", "10001", "10001", "10001", "01110"},   // O
+	{"11110", "10001", "10001", "11110", "10000", "10000", "10000"},   // P
+	{"10001", "10001", "10001", "10001", "10001", "10001", "01110"},   // U
 };
 
 static const char* const* glyph(char c) {
-	const char* order = "ABCEFLRST";
+	const char* order = "ABCEFLRSTDNOPU";
 	const char* p = strchr(order, c);
 	return p && c ? glyphRows[p - order] : NULL;
 }
@@ -230,6 +242,7 @@ static uint32_t heldMask;   // GBA keys currently pressed (for the highlight)
 static void drawControls(void) {
 	SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
 	for (int i = 0; i < CT_COUNT; ++i) {
+		if (!padsShown && i != CT_PADMODE) continue;
 		SDL_Rect r = ctl[i].r;
 		bool on = false;
 		switch (i) {
@@ -241,7 +254,7 @@ static void drawControls(void) {
 		case CT_SELECT: on = heldMask & (1u << GBA_KEY_SELECT); break;
 		case CT_FF: on = ffToggle; break;
 		}
-		SDL_SetRenderDrawColor(ren, on ? 230 : 40, on ? 200 : 50, on ? 120 : 90, on ? 200 : 150);
+		SDL_SetRenderDrawColor(ren, on ? 230 : 40, on ? 200 : 50, on ? 120 : 90, on ? 200 : (i == CT_PADMODE && !padsShown ? 70 : 150));
 		if (i == CT_DPAD) {
 			const int dp = r.w / 3;
 			SDL_Rect h = {r.x, r.y + dp, r.w, dp}, v = {r.x + dp, r.y, dp, r.h};
@@ -258,7 +271,7 @@ static void drawControls(void) {
 		}
 		if (i == CT_A || i == CT_B) fillCircle(r.x + r.w / 2, r.y + r.h / 2, r.w / 2);
 		else SDL_RenderFillRect(ren, &r);
-		SDL_SetRenderDrawColor(ren, 255, 255, 255, 220);
+		SDL_SetRenderDrawColor(ren, 255, 255, 255, i == CT_PADMODE && !padsShown ? 120 : 220);
 		int px = r.h / 12 > 1 ? r.h / 12 : 1, chars = (int) strlen(ctl[i].label);
 		while (px > 1 && chars * 6 * px > r.w - 4) --px;   // the label must fit its button
 		drawText(ctl[i].label, r.x + r.w / 2, r.y + r.h / 2, px);
@@ -268,6 +281,12 @@ static void drawControls(void) {
 static bool inRect(const SDL_Rect* r, int x, int y) { return x >= r->x && x < r->x + r->w && y >= r->y && y < r->y + r->h; }
 
 // ---- input ----------------------------------------------------------------------------------------------------------------
+static int padsConnected(void) {
+	int n = 0;
+	for (int k = 0; k < 4; ++k) if (pads[k] && SDL_GameControllerGetAttached(pads[k])) ++n;
+	return n;
+}
+
 static void openPads(void) {
 	for (int i = 0; i < SDL_NumJoysticks(); ++i) {
 		if (!SDL_IsGameController(i)) continue;
@@ -288,6 +307,11 @@ static int SDLCALL lifecycleWatch(void* ud, SDL_Event* e) {
 	return 0;
 }
 
+static const char* padModePath(void) {
+	static char path[160];
+	return gsAppFilePath("padmode.txt", path, sizeof(path));
+}
+
 static float tapX, tapY;
 static int tapHold;
 
@@ -299,6 +323,7 @@ void plPollInput(PlInput* in) {
 		if (e.type == SDL_FINGERDOWN) { tapX = e.tfinger.x; tapY = e.tfinger.y; tapHold = 4; }   // a very quick tap must still be seen for a few frames
 		if (e.type == SDL_CONTROLLERDEVICEADDED || e.type == SDL_CONTROLLERDEVICEREMOVED) openPads();
 	}
+	padsShown = !dualScreen && (padMode == 1 || (padMode == 0 && padsConnected() == 0));
 	layout();
 	const Uint8* k = SDL_GetKeyboardState(NULL);
 	uint32_t keys = 0;
@@ -331,7 +356,7 @@ void plPollInput(PlInput* in) {
 		if (lx > 16000) keys |= 1 << GBA_KEY_RIGHT;
 		if (ly < -16000) keys |= 1 << GBA_KEY_UP;
 		if (ly > 16000) keys |= 1 << GBA_KEY_DOWN;
-		if (SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) > 16000) in->turbo = true;
+		if (SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) > 16000 || SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_X)) in->turbo = true;   // like the 3DS: Y (west) or ZR
 	}
 
 	// pointers: every finger on the touch screen plus the mouse button
@@ -351,7 +376,8 @@ void plPollInput(PlInput* in) {
 	in->touch = false;
 	in->tx = in->ty = 0;
 	static bool ffWas;
-	bool ffNow = false;
+	bool ffNow = false, modeNow = false;
+	static bool modeWas;
 	for (int i = 0; i < np; ++i) {
 		if (inRect(&botDst, px[i], py[i])) {
 			if (!in->touch) { in->touch = true; in->tx = (px[i] - botDst.x) * GFX_W / botDst.w; in->ty = (py[i] - botDst.y) * GFX_H / botDst.h; }
@@ -359,7 +385,9 @@ void plPollInput(PlInput* in) {
 		}
 		for (int c = 0; c < CT_COUNT; ++c) {
 			if (!inRect(&ctl[c].r, px[i], py[i])) continue;
+			if (!padsShown && c != CT_PADMODE) continue;
 			switch (c) {
+			case CT_PADMODE: modeNow = true; break;
 			case CT_A: keys |= 1 << GBA_KEY_A; break;
 			case CT_B: keys |= 1 << GBA_KEY_B; break;
 			case CT_L: keys |= 1 << GBA_KEY_L; break;
@@ -378,6 +406,12 @@ void plPollInput(PlInput* in) {
 			}
 		}
 	}
+	if (modeNow && !modeWas) {   // the PAD chip cycles Auto -> On -> Off
+		padMode = (padMode + 1) % 3;
+		FILE* pf = fopen(padModePath(), "w");
+		if (pf) { fprintf(pf, "%d\n", padMode); fclose(pf); }
+	}
+	modeWas = modeNow;
 	if (ffNow && !ffWas) ffToggle = !ffToggle;   // the FF button latches
 	ffWas = ffNow;
 	if (ffToggle) in->turbo = true;
@@ -527,6 +561,7 @@ bool plChooseGame(GsGameId* out) {
 #endif
 
 bool plInit(void) {
+	SDL_SetHint(SDL_HINT_GAMECONTROLLER_USE_BUTTON_LABELS, "0");   // face buttons by position on every pad (east = A, south = B, like the 3DS), Nintendo pads included
 	SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");   // fingers are read directly (several at once: buttons plus the touch screen)
 	SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "0");
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return false; }
@@ -549,6 +584,11 @@ bool plInit(void) {
 	botTex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_RGB565, SDL_TEXTUREACCESS_STREAMING, GFX_W, GFX_H);
 	SDL_SetTextureScaleMode(topTex, SDL_ScaleModeNearest);
 	SDL_SetTextureScaleMode(botTex, SDL_ScaleModeNearest);
+	{
+		FILE* pf = fopen(padModePath(), "r");
+		int v;
+		if (pf) { if (fscanf(pf, "%d", &v) == 1 && v >= 0 && v <= 2) padMode = v; fclose(pf); }
+	}
 	openPads();
 	layout();
 #ifdef __ANDROID__
