@@ -1,209 +1,41 @@
-// GoldenSun3DS: mGBA core on the top screen, custom touch UI on the bottom.
-#include <3ds.h>
+// The shared application: emulation loop, touch actions, save states, settings and the render job. See app.h and platform.h.
+#include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include <mgba/core/core.h>
-#include <mgba-util/audio-buffer.h>
 #include <mgba/core/interface.h>
-#include <mgba/gba/interface.h>
-#include <mgba/internal/gba/input.h>
+#include <mgba/core/serialize.h>
 #include <mgba/internal/gba/gba.h>
+#include <mgba/internal/gba/input.h>
 #include <mgba-util/vfs.h>
 
-#include <mgba/core/serialize.h>
-
-#include "gs_game.h"
-#include "gs_items.h"
+#include "app.h"
+#include "art.h"
+#include "bestiary.h"
+#include "bgwrite.h"
 #include "dialoglog.h"
 #include "gs_abilities.h"
+#include "gs_areas.h"
 #include "gs_djinn.h"
 #include "gs_field.h"
+#include "gs_game.h"
+#include "gs_items.h"
 #include "gs_ram.h"
 #include "gs_state.h"
-#include "bestiary.h"
-#include "launcher.h"
-#include "art.h"
-#include "gs_areas.h"
-#include "mapview.h"
 #include "mapdecode.h"
-#include "bgwrite.h"
+#include "mapview.h"
 #include "menunav.h"
+#include "platform.h"
 #include "ui.h"
 
-#define SETTINGS_PATH "sdmc:/3ds/GoldenSun3DS/settings.bin"   // shared by both games
-#define LASTGAME_PATH "sdmc:/3ds/GoldenSun3DS/lastgame.txt"
-#define PERFLOG_PATH "sdmc:/3ds/GoldenSun3DS/perflog.txt"   // opt-in: create an empty file with this name and a line is appended every ten seconds
+typedef uint64_t u64;
+typedef uint32_t u32;
+
 // Per-game files (maps, saved states, autosave, area names) live in gsGamePath(); filled in once the game is chosen.
 static char mapsPath[128], areasPath[128], autoPath[128], stateDir[128], bestPath[128];
-#define AUDIO_SAMPLES 384
-#define DSP_BUFFERS 8   // ~94 ms of queued audio: rides out a slow frame without stuttering
-
-static volatile bool audioMute;   // set by the main loop: fast-forward, or too slow with "Mute if slow" on
-static ndspWaveBuf dspBuffer[DSP_BUFFERS];
-static int bufferId;
-static bool hasSound;
-
-static void postAudioBuffer(struct mAVStream* stream, struct mAudioBuffer* buffer) {
-	(void) stream;
-	if (!hasSound) {
-		return;
-	}
-	if (audioMute) {
-		mAudioBufferClear(buffer);
-		return;
-	}
-	for (int i = 0; i < DSP_BUFFERS; ++i) {
-		int id = (bufferId + i) & (DSP_BUFFERS - 1);
-		if (dspBuffer[id].status == NDSP_WBUF_QUEUED || dspBuffer[id].status == NDSP_WBUF_PLAYING) {
-			continue;
-		}
-		bufferId = id;
-		void* data = dspBuffer[id].data_pcm16;
-		memset(&dspBuffer[id], 0, sizeof(dspBuffer[id]));
-		dspBuffer[id].data_pcm16 = data;
-		dspBuffer[id].nsamples = AUDIO_SAMPLES;
-		mAudioBufferRead(buffer, data, AUDIO_SAMPLES);
-		DSP_FlushDataCache(data, AUDIO_SAMPLES * 2 * sizeof(int16_t));
-		ndspChnWaveBufAdd(0, &dspBuffer[id]);
-		return;
-	}
-	mAudioBufferClear(buffer);
-}
-
-static void audioRateChanged(struct mAVStream* stream, unsigned rate) {
-	(void) stream;
-	if (!rate) {
-		rate = 32768;
-	}
-	// We run 60 Hz frames; the GBA runs 59.7275 Hz.
-	ndspChnSetRate(0, rate * (60.0f / 59.7275f));
-}
-
-// Some consoles fault inside libctru's ndspInit (a data abort writing to DSP memory) and take the whole app down. A flag file is created before
-// the call and removed after it: if it is still there at the next start the previous attempt crashed, so sound stays off instead of crashing again.
-#define AUDIO_FLAG_PATH "sdmc:/3ds/GoldenSun3DS/audio_crash.flag"
-static bool audioSkipped;
-#define DSPFIRM_PATH "sdmc:/3ds/dspfirm.cdc"
-
-// Citra-derived emulators (Azahar, Citra) answer this undocumented system-info query; a real console reports an error for it.
-static bool runningInEmulator(void) {
-	s64 v = 0;
-	return R_SUCCEEDED(svcGetSystemInfo(&v, 0x20000, 0));
-}
-
-static void initAudio(void) {
-	FILE* flag = fopen(AUDIO_FLAG_PATH, "rb");
-	if (flag) { fclose(flag); audioSkipped = true; return; }   // last time audio start-up crashed: delete this file to try again
-	flag = fopen(AUDIO_FLAG_PATH, "wb");
-	if (flag) { fputs("audio start-up was in progress", flag); fclose(flag); }
-	Result rc = ndspInit();
-	if (R_FAILED(rc) && runningInEmulator()) {
-		// The audio library insists on a file named dspfirm.cdc, but an emulator's built-in (HLE) audio never looks inside it. So when there is no
-		// such file, write a placeholder (all zeros, no Nintendo data) into the emulator's virtual SD card and try once more. Never done on a console.
-		FILE* have = fopen(DSPFIRM_PATH, "rb");
-		if (have) { fclose(have); }
-		else {
-			FILE* ph = fopen(DSPFIRM_PATH, "wb");
-			if (ph) {
-				static const unsigned char zeros[0x4000];
-				fwrite(zeros, 1, sizeof(zeros), ph);
-				fclose(ph);
-				rc = ndspInit();
-			}
-		}
-	}
-	if (R_FAILED(rc)) {
-		remove(AUDIO_FLAG_PATH);   // it failed cleanly (for example no DSP firmware): not a crash
-		return;
-	}
-	ndspSetOutputMode(NDSP_OUTPUT_STEREO);
-	ndspSetOutputCount(1);
-	ndspChnReset(0);
-	ndspChnSetFormat(0, NDSP_FORMAT_STEREO_PCM16);
-	ndspChnSetInterp(0, NDSP_INTERP_NONE);
-	ndspChnWaveBufClear(0);
-	for (int i = 0; i < DSP_BUFFERS; ++i) {
-		memset(&dspBuffer[i], 0, sizeof(dspBuffer[i]));
-		dspBuffer[i].data_pcm16 = linearAlloc(AUDIO_SAMPLES * 2 * sizeof(int16_t));
-		dspBuffer[i].status = NDSP_WBUF_DONE;
-	}
-	hasSound = true;
-	remove(AUDIO_FLAG_PATH);   // start-up survived
-}
-
-static uint32_t mapKeys(u32 held) {
-	uint32_t k = 0;
-	if (held & KEY_A) k |= 1 << GBA_KEY_A;
-	if (held & KEY_B) k |= 1 << GBA_KEY_B;
-	if (held & KEY_SELECT) k |= 1 << GBA_KEY_SELECT;
-	if (held & KEY_START) k |= 1 << GBA_KEY_START;
-	if (held & KEY_DRIGHT) k |= 1 << GBA_KEY_RIGHT;
-	if (held & KEY_DLEFT) k |= 1 << GBA_KEY_LEFT;
-	if (held & KEY_DUP) k |= 1 << GBA_KEY_UP;
-	if (held & KEY_DDOWN) k |= 1 << GBA_KEY_DOWN;
-	if (held & KEY_R) k |= 1 << GBA_KEY_R;
-	if (held & KEY_L) k |= 1 << GBA_KEY_L;
-	if (held & KEY_CPAD_RIGHT) k |= 1 << GBA_KEY_RIGHT;
-	if (held & KEY_CPAD_LEFT) k |= 1 << GBA_KEY_LEFT;
-	if (held & KEY_CPAD_UP) k |= 1 << GBA_KEY_UP;
-	if (held & KEY_CPAD_DOWN) k |= 1 << GBA_KEY_DOWN;
-	return k;
-}
-
-// 240x160 RGB565 (row-major) -> top screen (400x240, column-major and flipped): 1x centred, or FILL stretch (5/3 wide x 3/2 tall, seams blended).
-// The source is read in blocks of 8 columns so every cache line is used once.
-#define AVG565(a, b) ((uint16_t) ((((a) & 0xF7DE) >> 1) + (((b) & 0xF7DE) >> 1) + ((a) & (b) & 0x0821)))
-#define BLK 8
-// Draws the top screen into the private buffer fb (400x240, column-major); presentFrame() copies it to the real framebuffer.
-static void blitTop(uint16_t* fb, const uint16_t* src, size_t stride, int mode) {
-	static int clearedMode = -1;
-	if (mode == TOP_1X) {
-		if (clearedMode != mode) { memset(fb, 0, 400 * 240 * sizeof(uint16_t)); clearedMode = mode; }   // the black border only needs painting once
-		uint16_t col[BLK][160];
-		for (int x0 = 0; x0 < 240; x0 += BLK) {
-			for (int y = 0; y < 160; ++y) {
-				const uint16_t* row = src + y * stride + x0;
-				for (int k = 0; k < BLK; ++k) col[k][y] = row[k];
-			}
-			for (int k = 0; k < BLK; ++k) {
-				uint16_t* dst = fb + (x0 + k + 80) * 240 + 240 - 40 - 160;   // dst[239 - (y + 40)] for y = 0..159 runs backwards
-				for (int y = 0; y < 160; ++y) dst[159 - y] = col[k][y];
-			}
-		}
-		return;
-	}
-	if (mode == TOP_FILL) {
-		// "Sharp bilinear" stretch: 3 source columns -> 5 (s0, mix, s1, mix, s2) and 2 source rows -> 3 (a, mix, b). Only the seam pixels are
-		// blended, so text keeps even stroke widths instead of the 1-2-2 pixel jitter that plain nearest-neighbour stretching gives.
-		clearedMode = -1;
-		uint16_t col[BLK][160];
-		static uint16_t E[240][240];   // every source column already stretched to 240 rows (flipped)
-		for (int x0 = 0; x0 < 240; x0 += BLK) {
-			for (int y = 0; y < 160; ++y) {
-				const uint16_t* row = src + y * stride + x0;
-				for (int k = 0; k < BLK; ++k) col[k][y] = row[k];
-			}
-			for (int k = 0; k < BLK; ++k) {
-				uint16_t* e = E[x0 + k];
-				for (int j = 0; j < 80; ++j) {
-					uint16_t a = col[k][2 * j], b = col[k][2 * j + 1];
-					e[239 - 3 * j] = a; e[238 - 3 * j] = AVG565(a, b); e[237 - 3 * j] = b;
-				}
-			}
-		}
-		for (int g = 0; g < 80; ++g) {
-			const uint16_t* s0 = E[3 * g]; const uint16_t* s1 = E[3 * g + 1]; const uint16_t* s2 = E[3 * g + 2];
-			uint16_t* d = fb + 5 * g * 240;
-			memcpy(d, s0, 480);
-			for (int i = 0; i < 240; ++i) d[240 + i] = AVG565(s0[i], s1[i]);
-			memcpy(d + 480, s1, 480);
-			for (int i = 0; i < 240; ++i) d[720 + i] = AVG565(s1[i], s2[i]);
-			memcpy(d + 960, s2, 480);
-		}
-		return;
-	}
-}
+static char settingsPath[128], perflogPath[128];
 
 // Scripted button presses (opening a game menu from a tap), one key mask per emulated frame.
 static uint16_t macroQ[2400];
@@ -319,7 +151,7 @@ static void saveDjinnSets(const UiView* ui) {
 }
 
 static void loadSettings(UiView* ui) {
-	FILE* f = fopen(SETTINGS_PATH, "rb");
+	FILE* f = fopen(settingsPath, "rb");
 	if (!f) return;
 	unsigned char b[6] = {0, 0, 0, 0, 0, 0};
 	size_t n = fread(b, 1, 6, f);
@@ -343,7 +175,7 @@ static void saveSettings(const UiView* ui) {
 	uint8_t* b = malloc(6);
 	if (!b) return;
 	b[0] = (uint8_t) ui->topScale; b[1] = (uint8_t) ui->hideMenus; b[2] = (uint8_t) ui->stateSlot; b[3] = (uint8_t) ui->autoSave; b[4] = (uint8_t) ui->speedMul; b[5] = (uint8_t) ui->muteSlow;
-	bgWriteStart(SETTINGS_PATH, b, 6);
+	bgWriteStart(settingsPath, b, 6);
 }
 
 // Slot 1 keeps the original file name so older saved states still load.
@@ -507,92 +339,21 @@ static void loadState(struct mCore* core, UiView* ui) {
 	uiToast(ui, msg);
 }
 
-static void fatal(const char* msg) {
-	launcherMessage(msg);
-	gfxExit();
-}
 
-// Picks the game to run. With one ROM present it is used directly; with both, the player chooses (A / B) and
-// the choice is remembered. Returns false (after showing a message) if nothing can be started.
-static bool chooseGame(GsGameId* out) {
-	int count = 0;
-	for (int i = 0; i < GS_GAME_COUNT; ++i) {
-		if (gsGameRomExists((GsGameId) i)) ++count;
-	}
-	if (!count) {
-		char a[128], b[128], msg[300];
-		snprintf(msg, sizeof(msg), "No ROM found. Put your ROM at:\n%s\n(Lost Age, optional:\n%s)", gsGameRomPath(GS_GAME_1, a, sizeof(a)), gsGameRomPath(GS_GAME_2, b, sizeof(b)));
-		fatal(msg);
-		return false;
-	}
-	int last = 0;
-	FILE* f = fopen(LASTGAME_PATH, "r");
-	if (f) { int v; if (fscanf(f, "%d", &v) == 1 && v >= 0 && v < GS_GAME_COUNT) last = v; fclose(f); }
-	const bool installed[2] = {gsGameRomExists(GS_GAME_1), gsGameRomExists(GS_GAME_2)};
-	int pick = launcherPick(last, installed);
-	if (pick < 0) { gfxExit(); return false; }
-	f = fopen(LASTGAME_PATH, "w");
-	if (f) { fprintf(f, "%d\n", pick); fclose(f); }
-	*out = (GsGameId) pick;
-	return true;
-}
-
-// ---- Frame pipeline --------------------------------------------------------------------------------------------------
-// Everything that is not emulation (top-screen copy, map stitching, bottom-screen drawing) is one Job. On a New 3DS it runs on the
-// second application core while the next frame is emulated; otherwise (Old 3DS, or profile "old") it runs inline on the same core.
-typedef struct {
-	GsState gs;
-	UiView ui;
-	const uint16_t* frame;   // snapshot of the live GBA frame
-	const uint16_t* top;     // frame shown on the top screen (differs from `frame` while a game menu is mirrored below)
-	bool doMap, clearMap, forgetMap, saveMap, finalSave;
-	bool reloadSlots;        // re-read the save-slot thumbnails
-	bool haveRing;           // ring holds a fresh copy of the text ring for the message log
-	uint16_t ring[DLOG_RING_WORDS];
-	u64 tTop, tMap, tUi;     // outputs: ticks spent
-} Job;
-
-static Job job;
+// ---- Frame pipeline (shared part) ---------------------------------------------------------------------------------------
+Job appJob;
+uint16_t appJobFrame[256 * 160], appJobTop[256 * 160];
 static uint32_t jobLastHash;
 static int jobDirty = 2;
-static LightSemaphore jobReady, jobDone;
-static volatile bool workerQuit;
-static bool workerBusy;
-static bool swapPending;
-static u64 swapTick;
-static volatile int vbWaits;   // real vblank waits since the last statistics line (shown as w in perflog.txt)
-static u64 vbRef;   // system tick just after a vblank we waited for (0 = none yet)
 
-// True when a vblank (predicted from vbRef) fell between the two ticks.
-static bool vblankBetween(u64 from, u64 to) {
-	if (to <= from) return false;
-	const double period = 268111856.0 / 59.8261;
-	double a = ((double) from - (double) vbRef) / period, b = ((double) to - (double) vbRef) / period;
-	return floor(b) > floor(a);
-}
-
-static uint16_t jobFrame[256 * 160], jobTop[256 * 160];
-
-// Everything is drawn into these private buffers first, so a job never has to wait for the display before it starts painting: the wait for the
-// vblank happens at the end, right before the finished picture is copied into the framebuffer and swapped in.
-static uint16_t privTop[400 * 240], privBot[320 * 240];
-static bool botDrawn;   // the bottom buffer was repainted by the last job (it is only copied then)
-
-static void presentFrame(void) {
-	memcpy(gfxGetFramebuffer(GFX_TOP, GFX_LEFT, NULL, NULL), privTop, sizeof(privTop));
-	if (botDrawn) memcpy(gfxGetFramebuffer(GFX_BOTTOM, GFX_LEFT, NULL, NULL), privBot, sizeof(privBot));
-}
-
-static void processJob(Job* j) {
-	botDrawn = false;
-	u64 t0 = svcGetSystemTick();
+bool appProcessJob(Job* j, uint16_t* botFb) {
+	bool botDrawn = false;
+	u64 t1 = plTicks();
 	if (j->forgetMap) mapForgetTransition();
 	if (j->clearMap) mapClearCurrent();
-	blitTop(privTop, j->top, 256, j->ui.topScale);
-	u64 t1 = svcGetSystemTick();
 	uiSetGbaFrame(j->frame, 256);
 	if (j->doMap) mapUpdate(j->frame, 256, &j->gs);
-	u64 t2 = svcGetSystemTick();
+	u64 t2 = plTicks();
 	if (j->reloadSlots) uiReloadSlots(stateDir);
 	if (j->haveRing) dlogPoll(j->ring, DLOG_RING_WORDS);
 	if (j->ui.mirror) jobDirty = 2;   // the bottom screen shows the live game menu
@@ -613,7 +374,7 @@ static void processJob(Job* j) {
 	if (h != jobLastHash) { jobLastHash = h; jobDirty = 2; }
 	if (jobDirty > 0) {
 		--jobDirty;
-		uiDraw(privBot, &j->gs, &j->ui);
+		uiDraw(botFb, &j->gs, &j->ui);
 		botDrawn = true;
 	}
 	if ((j->saveMap || j->finalSave) && mapDirty()) {   // serialise now (fast, in memory); the SD write happens in slices from the main loop
@@ -621,69 +382,21 @@ static void processJob(Job* j) {
 		uint8_t* buf = mapSerialize(&n);
 		if (buf) bgWriteStartInPlace(mapsPath, buf, n);   // the map is expendable: overwrite in place, no delete / rename
 	}
-	j->tTop = t1 - t0; j->tMap = t2 - t1; j->tUi = svcGetSystemTick() - t2;
+	j->tMap = t2 - t1; j->tUi = plTicks() - t2;
+	return botDrawn;
 }
 
-static void workerMain(void* arg) {
-	(void) arg;
-	for (;;) {
-		LightSemaphore_Acquire(&jobReady, 1);
-		if (workerQuit) break;
-		// The other core may have written the job through its own data cache: drop stale lines before reading, and push our
-		// framebuffer writes out before the buffers go to the GPU.
-		svcInvalidateProcessDataCache(CUR_PROCESS_HANDLE, (u32) &job, sizeof(job));
-		svcInvalidateProcessDataCache(CUR_PROCESS_HANDLE, (u32) jobFrame, sizeof(jobFrame));
-		svcInvalidateProcessDataCache(CUR_PROCESS_HANDLE, (u32) jobTop, sizeof(jobTop));
-		processJob(&job);   // paints into the private buffers: no waiting for the display here
-		// The previous swap only takes effect at a vblank and the framebuffer we are about to fill is the one still on screen until then.
-		// Waiting for the next vblank costs up to a whole frame, so it is skipped when a vblank has certainly happened since the swap: the
-		// vblanks arrive every 4.48 M ticks (59.83 Hz) from a reference taken at the last real wait, and the reference is refreshed at least
-		// every two seconds. Without this the wait was taken on about half of the frames and made the job longer than a frame, so the main
-		// loop found the worker busy and dropped the next picture.
-		if (swapPending) {
-			u64 now = svcGetSystemTick();
-			bool landed = vbRef && now - vbRef < (u64) 268111 * 2000 && vblankBetween(swapTick + 268111 * 3, now - 268111 * 2);
-			if (!landed) { gspWaitForVBlank(); vbRef = svcGetSystemTick(); ++vbWaits; }
-		}
-		presentFrame();
-		gfxFlushBuffers();
-		gfxSwapBuffers();
-		swapPending = true;
-		swapTick = svcGetSystemTick();
-		LightSemaphore_Release(&jobDone, 1);
-	}
-}
-
-static void waitWorker(void) {
-	if (workerBusy) { LightSemaphore_Acquire(&jobDone, 1); workerBusy = false; }
-}
-
-
-// A fixed integer workload timed at start-up: about 30 ms with the New 3DS clock (804 MHz + L2 cache) running, about 90 ms without it, so the
-// "c" figure in the Menu footer shows whether the console really is running at full speed.
-static unsigned cpuBenchMs(void) {
-	volatile uint32_t x = 1;
-	u64 t0 = svcGetSystemTick();
-	for (uint32_t i = 0; i < 3000000u; ++i) x = x * 1664525u + 1013904223u;
-	return (unsigned) ((svcGetSystemTick() - t0) / 268123u);
-}
-static unsigned cpuMs;
-
-int main(void) {
-	gfxInit(GSP_RGB565_OES, GSP_RGB565_OES, false);
-	osSetSpeedupEnable(true);
-	cpuMs = cpuBenchMs();
-
-	gsGameInitRomfs();
-	gsGameEnsureDir(GS_GAME_1);   // creates sdmc:/3ds/GoldenSun3DS before anything writes there
+int appRun(void) {
+	gsGamePath(GS_GAME_1, "settings.bin", settingsPath, sizeof(settingsPath));   // shared by both games
+	gsGamePath(GS_GAME_1, "perflog.txt", perflogPath, sizeof(perflogPath));   // opt-in: create an empty file with this name and a line is appended every ten seconds
 	GsGameId game;
-	if (!chooseGame(&game)) return 1;
+	if (!plChooseGame(&game)) return 1;
 	const GsGameInfo* gi = gsGameInfo(game);
 	if (!gsGameRomMatches(game)) {
 		char code[5] = "????", msg[200];
 		gsGameRomCode(game, code);
 		snprintf(msg, sizeof(msg), "%s is not %s\n(ROM game code %s, expected %s*).", gi->romFile, gi->name, code, gi->codePrefix);
-		fatal(msg);
+		plFatal(msg);
 		return 1;
 	}
 	gsGameEnsureDir(game);
@@ -693,7 +406,7 @@ int main(void) {
 	gsGamePath(game, "areas.txt", areasPath, sizeof(areasPath));
 	gsGamePath(game, "auto.ss", autoPath, sizeof(autoPath));
 	gsGamePath(game, "djinn.bin", djinnPath, sizeof(djinnPath));
-	{ FILE* pf = fopen(PERFLOG_PATH, "r"); if (pf) { fclose(pf); perflogOn = true; } }
+	{ FILE* pf = fopen(perflogPath, "r"); if (pf) { fclose(pf); perflogOn = true; } }
 	gsSetGame(gi->name, gi->mapped);
 	gsSetRam(game == GS_GAME_2 ? &gsRamTla : &gsRamGs1);
 	gsAreasUseBuiltin(true);
@@ -703,7 +416,7 @@ int main(void) {
 
 	struct mCore* core = mCoreFind(romPath);
 	if (!core) {
-		fatal("Could not open ROM.");
+		plFatal("Could not open ROM.");
 		return 1;
 	}
 
@@ -711,9 +424,8 @@ int main(void) {
 	mCoreInitConfig(core, NULL);   // without this the config hash table is uninitialised: harmless on an emulator that zeroes memory, a data abort in HashTableLookup on real hardware
 	static uint16_t video[256 * 160];
 	core->setVideoBuffer(core, video, 256);
-	core->setAudioBufferSize(core, AUDIO_SAMPLES);
 	if (!mCoreLoadFile(core, romPath)) {
-		fatal("Could not load ROM.");
+		plFatal("Could not load ROM.");
 		return 1;
 	}
 	{
@@ -723,11 +435,7 @@ int main(void) {
 		mCoreLoadSaveFile(core, savePath, false);   // the ROM may sit in the read-only RomFS of a .cia, so the save path is explicit
 	}
 
-	initAudio();
-	static struct mAVStream stream;
-	stream.postAudioBuffer = postAudioBuffer;
-	stream.audioRateChanged = audioRateChanged;
-	core->setAVStream(core, &stream);
+	plAudioInit(core);
 	core->reset(core);
 
 	static UiView ui;
@@ -735,25 +443,8 @@ int main(void) {
 	static GsState gs;
 	uiInit(&ui);
 	loadDjinnSets(&ui);
-	if (audioSkipped) { uiToast(&ui, "Sound off (see notes)"); ui.toastFrames = 400; }
-	bool newHw = false;
-	APT_CheckNew3DS(&newHw);
-	int profile = 0;   // 0 auto, 1 new (two cores), 2 old (single core): sdmc:/3ds/GoldenSun3DS/profile.txt, written by the patcher
-	{
-		char pp[128];
-		FILE* pf = fopen(gsAppFilePath("profile.txt", pp, sizeof(pp)), "r");
-		char w[16] = "";
-		if (pf) { if (fscanf(pf, "%15s", w) == 1) profile = !strcmp(w, "new") ? 1 : !strcmp(w, "old") ? 2 : 0; fclose(pf); }
-	}
-	Thread worker = NULL;
-	if (profile == 1 || (profile == 0 && newHw)) {
-		LightSemaphore_Init(&jobReady, 0, 1);
-		LightSemaphore_Init(&jobDone, 0, 1);
-		s32 prio = 0x30;
-		svcGetThreadPriority(&prio, CUR_THREAD_HANDLE);
-		worker = threadCreate(workerMain, NULL, 128 * 1024, prio, 2, false);   // core 2 exists on New 3DS only; NULL falls back to inline
-	}
-	bgWriteInit(worker ? 2 : -1);   // SD writes run on their own low-priority thread
+	if (plAudioSkipped()) { uiToast(&ui, "Sound off (see notes)"); ui.toastFrames = 400; }
+	bgWriteInit(plTwoCore() ? 2 : -1);   // SD writes run on their own low-priority thread
 	mapInit();
 	{ struct GBA* gb = core->board; mdInit((const uint8_t*) gb->memory.rom, gb->memory.romSize, game == GS_GAME_1 ? 1 : 2); }   // draw maps from the ROM when its tables are recognised
 	gsAreasLoad(areasPath);
@@ -778,17 +469,14 @@ int main(void) {
 	int equipTail = 0;   // tap-to-equip: the macro is running / frames still to hide after it ended
 	bool haveClean = false;
 	int menuHold = 0;
-	u64 acc[5] = {0}, wallStart = svcGetSystemTick();
-	u64 deadline = svcGetSystemTick();
+	u64 acc[5] = {0}, wallStart = plTicks();
 	int droppedDraws = 0;
 	bool pendingSave = false;
 	int accFrames = 0, accGame = 0;
-	while (aptMainLoop()) {
-		u64 t0 = svcGetSystemTick();
-		hidScanInput();
-		u32 held = hidKeysHeld();
-		touchPosition touch = {0, 0};
-		if (held & KEY_TOUCH) hidTouchRead(&touch);
+	while (plRunning()) {
+		u64 t0 = plTicks();
+		PlInput in;
+		plPollInput(&in);
 		gsReadState(&gs, memRead, core);
 		gs.bldcnt = ((struct GBA*) core->board)->memory.io[0x50 >> 1];
 		bestObserve(&gs);
@@ -811,7 +499,7 @@ int main(void) {
 			lastScale = ui.topScale; lastHide = ui.hideMenus; lastSlot = ui.stateSlot; lastAuto = ui.autoSave; lastMul = ui.speedMul; lastMute = ui.muteSlow;
 			saveSettings(&ui);
 		}
-		uiUpdate(&ui, &gs, (held & KEY_TOUCH) != 0, touch.px, touch.py, &uo);
+		uiUpdate(&ui, &gs, in.touch, in.tx, in.ty, &uo);
 		if (uo.saveState) {
 			char note[40];   // shown on the slot card: party level and where you are
 			if (gs.partySize > 0 && gs.areaGroup != 0) snprintf(note, sizeof(note), "Lv%u %s", (unsigned) gs.party[0].level, gsAreaName(gs.areaGroup));
@@ -1152,8 +840,8 @@ int main(void) {
 		if (uo.closeMenu) macroClose();
 		if (uo.menuTap && navTap(&nav, &gs, uo.tapX, uo.tapY)) { macroN = macroI = 0; macroPress(GBA_KEY_A, 3, 6); }   // second tap on the same spot confirms
 		if (uo.keys || uo.closeMenu || uo.openMenu != MENU_NONE || !ui.mirror) nav.active = false;                      // buttons override tap-navigation
-		const uint32_t keysBase = mapKeys(held) | touchKeysToGba(uo.keys | navStep(&nav, &gs));
-		const bool turbo = ui.fastForward || (held & (KEY_Y | KEY_ZR)) != 0;   // menu toggle, or hold Y / ZR
+		const uint32_t keysBase = in.keys | touchKeysToGba(uo.keys | navStep(&nav, &gs));
+		const bool turbo = ui.fastForward || in.turbo;   // menu toggle, or hold Y / ZR
 		// While a touch action (equip, cast, Djinn, keyboard) is pressing buttons in the hidden game menus, run four frames per loop:
 		// the presses are fed one per emulated frame, so the sequence finishes about four times sooner and the sound is muted.
 		if (uo.repeatRound && gs.mode == GS_MODE_BATTLE && gs.battleTop && lastN > 0 && macroI >= macroN && act.phase == 0 && !repeating) {
@@ -1170,13 +858,13 @@ int main(void) {
 		// Fast-forward cannot beat the console's real emulation speed: asking for 4 frames per loop when one takes 30 ms only makes the picture
 		// update 8 times a second. Keep at least ~30 loops a second by capping the frames per loop to what the console can actually do.
 		if (frames > 1 && frameTicksEma > 0) {
-			int cap = (int) (8850000.0 / frameTicksEma);
+			int cap = (int) (PL_FF_CAP_TICKS / frameTicksEma);
 			if (cap < 1) cap = 1;
 			if (frames > cap) frames = cap;
 		}
 		ffActive = frames > 1;
-		audioMute = ffActive || (ui.muteSlow && slowNow);
-		u64 t1 = svcGetSystemTick();
+		plAudioMute(ffActive || (ui.muteSlow && slowNow));
+		u64 t1 = plTicks();
 		struct GBA* gbaBoard = core->board;
 		int camPreX = 0, camPreY = 0;
 		for (int i = 0; i < frames; ++i) {
@@ -1200,29 +888,23 @@ int main(void) {
 			gs.playerX += camPreX - gs.camX; gs.playerY += camPreY - gs.camY;
 			gs.camX = camPreX; gs.camY = camPreY;
 		}
-		{ u64 tp = svcGetSystemTick(); bgWritePump(); spPump = svcGetSystemTick() - tp; }   // one step of any pending map / autosave write
+		{ u64 tp = plTicks(); bgWritePump(); spPump = plTicks() - tp; }   // one step of any pending map / autosave write
 		accGame += frames;
-		if (gi->mapped && (rewindTick += (unsigned) frames) >= 60) { rewindTick = 0; if (act.phase == 0) { u64 tr = svcGetSystemTick(); rewindPush(core); spRewind = svcGetSystemTick() - tr; } }
-		u64 t2 = svcGetSystemTick();
+		if (gi->mapped && (rewindTick += (unsigned) frames) >= 60) { rewindTick = 0; if (act.phase == 0) { u64 tr = plTicks(); rewindPush(core); spRewind = plTicks() - tr; } }
+		u64 t2 = plTicks();
 		{ double perFrame = (double) (t2 - t1) / frames; frameTicksEma = frameTicksEma > 0 ? frameTicksEma * 0.9 + perFrame * 0.1 : perFrame; }
 		bool menuBit = gi->mapped && (memRead(core, gsRam()->menuFlags, 1) & GS_MENU_BIT) != 0 && (memRead(core, GS_REG_DISPCNT, 2) & 7) != 1;
 		if (menuBit) menuHold = 2; else if (menuHold > 0) --menuHold;  // the panels vanish a frame after the bit clears
 		bool menuNow = menuBit || menuHold > 0;
-		if (ui.autoSave && ++autoTimer >= 60 * 60 * 5 && !menuNow && gs.mode == GS_MODE_FIELD) { autoTimer = 0; u64 ta = svcGetSystemTick(); writeStateAsync(core, autoPath); spSave = svcGetSystemTick() - ta; }   // every ~5 minutes in the field
+		if (ui.autoSave && ++autoTimer >= 60 * 60 * 5 && !menuNow && gs.mode == GS_MODE_FIELD) { autoTimer = 0; u64 ta = plTicks(); writeStateAsync(core, autoPath); spSave = plTicks() - ta; }   // every ~5 minutes in the field
 		bool saveMap = (++mapSaveTimer >= 10800 && !gs.menuOpen && gs.mode == GS_MODE_FIELD) || pendingSave;   // every ~3 minutes in the field (and on exit), only if the map changed
 		if (saveMap) { mapSaveTimer = 0; pendingSave = false; }
 
 		// Two-core mode: emulation never waits for the display. If the worker is still painting or presenting the previous frame this
 		// frame is simply not drawn (it is still emulated), so a slow stretch costs a few frames on screen instead of halving the speed.
-		bool submit = true;
-		u64 tw0 = svcGetSystemTick();
-		if (worker) {
-			if (workerBusy && LightSemaphore_TryAcquire(&jobDone, 1) == 0) workerBusy = false;
-			submit = !workerBusy;
-		} else {
-			waitWorker();
-		}
-		u64 tw1 = svcGetSystemTick();
+		u64 tw0 = plTicks();
+		bool submit = plJobSlotFree();
+		u64 tw1 = plTicks();
 		// Keep the menu-free frame history current even for frames that are not drawn.
 		if (!menuNow) {
 			cleanHead = (cleanHead + 2) % 3;           // newest goes into the oldest slot
@@ -1234,82 +916,66 @@ int main(void) {
 		if (submit) {
 			const uint16_t* topFrame = video;
 			if (((menuNow && ui.hideMenus) || equipHide) && haveClean) topFrame = clean[(cleanHead + 2) % 3];   // the menu bit rises a frame or two before the panels draw: show the oldest kept frame
-			memcpy(jobFrame, video, sizeof(jobFrame));
-			job.gs = gs;
-			job.ui = ui;
-			job.frame = jobFrame;
-			if (topFrame == video) job.top = jobFrame;
-			else { memcpy(jobTop, topFrame, sizeof(jobTop)); job.top = jobTop; }
-			job.doMap = gi->mapped && gsRam()->hasMap && !gs.menuOpen && !menuNow;
-			job.clearMap = pendingClear; pendingClear = false;
-			job.forgetMap = pendingForget; pendingForget = false;
-			job.saveMap = saveMap;
-			job.reloadSlots = reloadSlots; reloadSlots = false;
-			job.haveRing = false;
+			memcpy(appJobFrame, video, sizeof(appJobFrame));
+			appJob.gs = gs;
+			appJob.ui = ui;
+			appJob.frame = appJobFrame;
+			if (topFrame == video) appJob.top = appJobFrame;
+			else { memcpy(appJobTop, topFrame, sizeof(appJobTop)); appJob.top = appJobTop; }
+			appJob.doMap = gi->mapped && gsRam()->hasMap && !gs.menuOpen && !menuNow;
+			appJob.clearMap = pendingClear; pendingClear = false;
+			appJob.forgetMap = pendingForget; pendingForget = false;
+			appJob.saveMap = saveMap;
+			appJob.reloadSlots = reloadSlots; reloadSlots = false;
+			appJob.haveRing = false;
 			if (gi->mapped && gsRam()->textBuf && !gs.menuOpen && (++ringTick & 3) == 0) {   // the message log reads the text ring a few times a second
-				for (int i = 0; i < DLOG_RING_WORDS; ++i) job.ring[i] = (uint16_t) core->busRead16(core, gsRam()->textBuf + 2u * (uint32_t) i);
-				job.haveRing = true;
+				for (int i = 0; i < DLOG_RING_WORDS; ++i) appJob.ring[i] = (uint16_t) core->busRead16(core, gsRam()->textBuf + 2u * (uint32_t) i);
+				appJob.haveRing = true;
 			}
-			if (worker) {
-				svcFlushProcessDataCache(CUR_PROCESS_HANDLE, (u32) &job, sizeof(job));
-				svcFlushProcessDataCache(CUR_PROCESS_HANDLE, (u32) jobFrame, sizeof(jobFrame));
-				if (job.top == jobTop) svcFlushProcessDataCache(CUR_PROCESS_HANDLE, (u32) jobTop, sizeof(jobTop));
-				workerBusy = true;
-				LightSemaphore_Release(&jobReady, 1);
-			} else {
-				processJob(&job);
-				presentFrame();
-				gfxFlushBuffers();
-				gfxSwapBuffers();
-				gspWaitForVBlank();   // the next frame is drawn into the buffer that was on screen until this vblank
-			}
+			plJobSubmit(&appJob);
 		} else {
 			++droppedDraws;
 			pendingSave |= saveMap;   // do not lose a periodic map save on a dropped frame
 		}
-		if (worker) {   // pace the emulation to the GBA's 59.73 Hz: sleep only when ahead of schedule
-			deadline += (u64) (268111856.0 / 59.7275);
-			u64 now = svcGetSystemTick();
-			if (now + 4000 < deadline) { svcSleepThread((s64) ((deadline - now) * 1000 / 268)); spSleep = svcGetSystemTick() - now; }
-			else if (now > deadline + (u64) (268111856.0 / 59.7275) * 4) deadline = now;
-		}
-		u64 t5 = svcGetSystemTick();
-		if (perflogOn && t5 - t0 > 268123ull * 45 && spikeLogged < 300) {   // a loop longer than 45 ms: note where the time went
+		spSleep = plPace();   // pace the emulation to the GBA's 59.73 Hz: sleeps only when ahead of schedule (two-core mode)
+		u64 t5 = plTicks();
+		if (perflogOn && t5 - t0 > PL_TICKS_PER_MS * 45 && spikeLogged < 300) {   // a loop longer than 45 ms: note where the time went
 			char* sl = malloc(200);   // written by the background thread: the log itself must not stall the loop
 			if (sl) {
-				int n = snprintf(sl, 200, "SPIKE total=%ums pre=%ums emu=%ums mid=%ums submit=%ums sleep=%ums rewind=%ums autosave=%ums frames=%d mode=%d\n", (unsigned) ((t5 - t0) / 268123),
-					(unsigned) ((t1 - t0) / 268123), (unsigned) ((t2 - t1) / 268123), (unsigned) ((tw0 - t2) / 268123), (unsigned) ((tw1 - tw0) / 268123), (unsigned) (spSleep / 268123),
-					(unsigned) (spRewind / 268123), (unsigned) (spSave / 268123), frames, (int) gs.mode);
-				bgWriteAppend(PERFLOG_PATH, (uint8_t*) sl, (size_t) (n > 0 && n < 200 ? n : 0));
+				int n = snprintf(sl, 200, "SPIKE total=%ums pre=%ums emu=%ums mid=%ums submit=%ums sleep=%ums rewind=%ums autosave=%ums frames=%d mode=%d\n", (unsigned) ((t5 - t0) / PL_TICKS_PER_MS),
+					(unsigned) ((t1 - t0) / PL_TICKS_PER_MS), (unsigned) ((t2 - t1) / PL_TICKS_PER_MS), (unsigned) ((tw0 - t2) / PL_TICKS_PER_MS), (unsigned) ((tw1 - tw0) / PL_TICKS_PER_MS), (unsigned) (spSleep / PL_TICKS_PER_MS),
+					(unsigned) (spRewind / PL_TICKS_PER_MS), (unsigned) (spSave / PL_TICKS_PER_MS), frames, (int) gs.mode);
+				bgWriteAppend(perflogPath, (uint8_t*) sl, (size_t) (n > 0 && n < 200 ? n : 0));
 				++spikeLogged;
 			}
 		}
 		spPump = spRewind = spSave = spSleep = 0;
-		acc[0] += t1 - t0; acc[1] += t2 - t1; acc[2] += tw1 - tw0; acc[3] += job.tTop + job.tMap; acc[4] += job.tUi;
-		if (++accFrames >= 60) {   // ticks run at 268.1 MHz: 268123 ticks per millisecond
+		acc[0] += t1 - t0; acc[1] += t2 - t1; acc[2] += tw1 - tw0; acc[3] += appJob.tTop + appJob.tMap; acc[4] += appJob.tUi;
+		if (++accFrames >= 60) {   // PL_TICKS_PER_MS ticks per millisecond
 			u64 wall = t5 - wallStart;
-			const double tpm = 268123.0 * accFrames;
+			const double tpm = (double) PL_TICKS_PER_MS * accFrames;
 			char perfFull[96];   // the detailed line goes to perflog.txt (when it exists); the Menu footer shows only the frame rate
-			snprintf(perfFull, sizeof(perfFull), "%.0ffps%s game%.0f e%.1f d%d t%.1f u%.1f w%d c%u%s", accFrames * 268123000.0 / (double) (wall ? wall : 1), worker ? " 2c" : "",
-				accGame * 268123000.0 / (double) (wall ? wall : 1), (double) acc[1] / tpm, droppedDraws, (double) acc[3] / tpm, (double) acc[4] / tpm, vbWaits, cpuMs, autoSkip ? " sk" : "");
-			vbWaits = 0;
-			snprintf(ui.perf, sizeof(ui.perf), "%.0f FPS", accGame * 268123000.0 / (double) (wall ? wall : 1));
+			snprintf(perfFull, sizeof(perfFull), "%.0ffps%s game%.0f e%.1f d%d t%.1f u%.1f w%d c%u%s", accFrames * PL_FPS_SCALE / (double) (wall ? wall : 1), plTwoCore() ? " 2c" : "",
+				accGame * PL_FPS_SCALE / (double) (wall ? wall : 1), (double) acc[1] / tpm, droppedDraws, (double) acc[3] / tpm, (double) acc[4] / tpm, plTakeVblankWaits(), plCpuMs(), autoSkip ? " sk" : "");
+			snprintf(ui.perf, sizeof(ui.perf), "%.0f FPS", accGame * PL_FPS_SCALE / (double) (wall ? wall : 1));
 			static int perfReports;
 			if (perflogOn && ++perfReports % 10 == 0) {   // only when the player created perflog.txt: one line per ten seconds for real-console timing reports
 				char* pl = malloc(200);
 				if (pl) {
-					int n = snprintf(pl, 200, "%s mode=%d appFreeKB=%u linearFreeKB=%u\n", perfFull, (int) gs.mode, (unsigned) (osGetMemRegionFree(MEMREGION_APPLICATION) / 1024), (unsigned) (linearSpaceFree() / 1024));
-					bgWriteAppend(PERFLOG_PATH, (uint8_t*) pl, (size_t) (n > 0 && n < 200 ? n : 0));
+					char extra[64];
+						plPerfExtra(extra, sizeof(extra));
+						int n = snprintf(pl, 200, "%s mode=%d%s\n", perfFull, (int) gs.mode, extra);
+					bgWriteAppend(perflogPath, (uint8_t*) pl, (size_t) (n > 0 && n < 200 ? n : 0));
 				}
 			}
-			const bool slow = accGame * 268123000.0 / (double) (wall ? wall : 1) < 54.0 && !ffActive;
+			const bool slow = accGame * PL_FPS_SCALE / (double) (wall ? wall : 1) < 54.0 && !ffActive;
 			static int skipOk;
 			if (slow) { autoSkip = true; skipOk = 0; }
 			else if (autoSkip && ++skipOk >= 30) { autoSkip = false; skipOk = 0; }   // after half a minute of full speed try full drawing again
 			slowNow = slow;
 			{   // say why there is no sound, if there is none: no audio device, or "Mute if slow" silencing a console that cannot hold full speed
-				const char* why = !hasSound ? "  (no audio)" : (ui.muteSlow && slow) ? "  (muted: slow)" : "";
-				snprintf(ui.perf, sizeof(ui.perf), "%.0f FPS%s", accGame * 268123000.0 / (double) (wall ? wall : 1), why);
+				const char* why = !plHasSound() ? "  (no audio)" : (ui.muteSlow && slow) ? "  (muted: slow)" : "";
+				snprintf(ui.perf, sizeof(ui.perf), "%.0f FPS%s", accGame * PL_FPS_SCALE / (double) (wall ? wall : 1), why);
 			}
 			accGame = 0; droppedDraws = 0;
 			for (int i = 0; i < 5; ++i) acc[i] = 0;
@@ -1317,27 +983,14 @@ int main(void) {
 		}
 	}
 
-	waitWorker();
-	if (worker) {
-		job.doMap = job.clearMap = job.forgetMap = job.saveMap = false;
-		job.finalSave = true;   // the worker owns the map: it writes the final copy
-		svcFlushProcessDataCache(CUR_PROCESS_HANDLE, (u32) &job, sizeof(job));
-		workerBusy = true;
-		LightSemaphore_Release(&jobReady, 1);
-		waitWorker();
-		workerQuit = true;
-		LightSemaphore_Release(&jobReady, 1);
-		threadJoin(worker, U64_MAX);
-		threadFree(worker);
-	}
+	appJob.doMap = appJob.clearMap = appJob.forgetMap = appJob.saveMap = false;
+	appJob.finalSave = true;   // the worker owns the map: it writes the final copy
+	plJobFinish(&appJob);
 	bgWriteFlush();
 	if (bestDirty()) bestSave(bestPath);
-	if (!worker) { if (mapDirty()) mapSave(mapsPath); }
+	if (!plTwoCore()) { if (mapDirty()) mapSave(mapsPath); }
 	if (ui.autoSave) writeState(core, autoPath);
 	core->deinit(core);
-	if (hasSound) {
-		ndspExit();
-	}
-	gfxExit();
+	plExit();
 	return 0;
 }

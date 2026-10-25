@@ -8,7 +8,7 @@ the map decoder (`mapdecode.c`, `mapview.c`), the tables (`gs_items.c` ...), the
 on a PC (the host tools `ui_preview`, `stateprobe` and `selftest.py` use them). mGBA itself builds for Android and desktop.
 
 ## What is 3DS-specific (the whole surface)
-Only four files include `<3ds.h>`: `main.c`, `launcher.c`, `bgwrite.c`, `gs_game.c`. The calls are:
+Only four files include `<3ds.h>`: `app.c`, `platform_3ds.c`, `launcher.c`, `bgwrite.c`, `gs_game.c`. The calls are:
 | Area | libctru calls | Android replacement |
 |---|---|---|
 | Video | `gfxInit/GetFramebuffer/FlushBuffers/SwapBuffers` (two rotated 400x240 / 320x240 RGB565 framebuffers) | upload the same two buffers as textures (SDL2 + OpenGL ES), scaled into a stacked or side-by-side layout |
@@ -30,7 +30,7 @@ save states, rewind, settings, frame pacing and the render job. To keep two buil
 
 ## Work packages (rough sessions)
 1. **Desktop spike (1-2).** `platform/sdl` plus a small loop: GBA picture + the existing UI in a window, mouse as touch. Proves the core outside the 3DS and gives a Windows/Linux build for free. Needs SDL2 (MinGW development package).
-2. **Split `main.c` (2-3).** Extract `app.c` + `actions.c` behind `platform.h`; port the 3DS side onto it; regression: `selftest.py` (109 checks) plus Azahar smoke runs plus a console check.
+2. **Split `main.c` (2-3).** Extract `app.c` + `actions.c` behind `platform.h`; port the 3DS side onto it; regression: `selftest.py` (110 checks) plus Azahar smoke runs plus a console check.
 3. **Android shell (3-4).** Gradle project from SDL2's `android-project`, CMake for mGBA + core + SDL2 (arm64-v8a and armeabi-v7a), a Java file-picker (Storage Access Framework) that copies the user's ROMs into the app, immersive full screen, layouts (portrait stack, landscape side by side, dual-screen devices), lifecycle (autosave on pause), touch + gamepad mapping.
 4. **Audio and timing (1-2).** Ring buffer, vsync pacing, real fast-forward (phones have the headroom), low-latency audio path.
 5. **CI and releases (1).** GitHub Actions: devkitPro container for the 3DS build, Gradle for the APK, both attached to one release with one version number. Debug-signed APK first; a release keystore kept out of the repo.
@@ -59,4 +59,12 @@ The desktop spike runs: `desktop/main_sdl.c` is about 150 lines of SDL2 and show
 - The shared core compiled with Visual C++ **without any source changes**: a force-included header (`desktop/msvc_compat.h`) only swallows `__attribute__`. That confirms the core is portable; Android (clang, NDK) is the more forgiving case.
 - mGBA builds with MSVC as a static library (`LIBMGBA_ONLY`, no zlib/png/ffmpeg); the result runs a real Golden Sun state at full speed.
 - Pitfall found: the application must be compiled with the same `-D` flags as the mGBA library (`ENABLE_DEBUGGERS` and others change struct layouts); a mismatch crashed `core->init`. The Android CMake build must use one shared flag list.
-- Not done: touch actions that press game buttons (they live in `main.c`, work package 2), audio, a ROM picker.
+- Not done: touch actions that press game buttons (they live in `app.c` now; the desktop loop still has to be moved onto `appRun()`), audio, a ROM picker.
+
+## Status (Oct 24): work package 2 done
+`main.c` is split in three (see `src/`):
+- `app.c` / `app.h`: the shared core: touch actions, save states, rewind, settings, the frame loop (`appRun`) and the per-frame job (`appProcessJob`: map stitching, UI drawing).
+- `platform.h`: the contract a platform implements (input, timing, audio, jobs/threads, picker, fatal errors) plus tick constants.
+- `platform_3ds.c`: everything libctru: ndsp audio, the top-screen blit, the worker thread on core 2, vblank pacing, the game picker. `main()` is just `plInit()` then `appRun()`.
+The 3DS build is unchanged in behaviour: `selftest.py` (110 checks) passes and Azahar smoke runs (ROM map, Lost Age cast flow, menu at 60 FPS) match before the split. Not re-run: a console perf check.
+Next: `platform_sdl.c` implementing `platform.h` (mGBA built with `COLOR_16_BIT` + `COLOR_5_6_5` like the 3DS), so the desktop build runs `appRun()` and the touch actions work.

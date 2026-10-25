@@ -18,7 +18,7 @@ Venus Lighthouse.
 
 ## Turning on the info tabs (to do when a ROM and saves are available)
 1. Set `mapped` to true for the game in `src/gs_game.c` only after the steps below.
-2. Move the addresses out of `gs_ram.h` into a per-game table (they are `#define`s used by `gs_state.c`, `main.c` and the host tools). Start by copying Golden Sun's values.
+2. Move the addresses out of `gs_ram.h` into a per-game table (they are `#define`s used by `gs_state.c`, `app.c` and the host tools). Start by copying Golden Sun's values.
 3. Re-verify, in this order (same method as RAM_MAP.md; scripts in `tools/`): character record base and stride, name/level/HP offsets, party mask and order array (`tools/partyscan.py`), coins, map id and player/camera, menu flag bit, Djinn bytes, battle selectors (`tools/battleorder.py`), enemy records.
 4. Expect differences: new party (Felix, Jenna, Sheba, Piers), more Djinn per element, ship/world-map rules, and the item and ability id tables (`gs_items.c`, `gs_abilities.c`) need extending.
 5. Add Lost Age portraits/area names; `areas.txt` in `lost_age/` already works for names without a rebuild.
