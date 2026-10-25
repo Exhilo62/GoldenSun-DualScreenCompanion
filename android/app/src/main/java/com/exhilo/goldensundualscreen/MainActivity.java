@@ -7,9 +7,11 @@ import android.hardware.display.DisplayManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.Display;
+import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.View;
 
 import org.libsdl.app.SDLActivity;
 
@@ -24,6 +26,7 @@ import java.io.InputStream;
  */
 public class MainActivity extends SDLActivity {
     private static native void nativeSetTopSurface(Surface surface);
+    private static native void nativeSurfaceTouch(int action, float x, float y);
 
     private DisplayManager displays;
     private Presentation topScreen;
@@ -93,6 +96,16 @@ public class MainActivity extends SDLActivity {
                     @Override public void surfaceCreated(SurfaceHolder h) { nativeSetTopSurface(h.getSurface()); }
                     @Override public void surfaceChanged(SurfaceHolder h, int f, int w, int hh) { nativeSetTopSurface(h.getSurface()); }
                     @Override public void surfaceDestroyed(SurfaceHolder h) { nativeSetTopSurface(null); }
+                });
+                // When the screens are swapped the companion UI is drawn here, so a finger on this display is the touch screen.
+                view.setOnTouchListener(new View.OnTouchListener() {
+                    @Override
+                    public boolean onTouch(View v, MotionEvent e) {
+                        int a = e.getActionMasked();
+                        if (a == MotionEvent.ACTION_DOWN || a == MotionEvent.ACTION_MOVE) nativeSurfaceTouch(0, e.getX() / v.getWidth(), e.getY() / v.getHeight());
+                        else if (a == MotionEvent.ACTION_UP || a == MotionEvent.ACTION_CANCEL) nativeSurfaceTouch(1, 0, 0);
+                        return true;
+                    }
                 });
                 setContentView(view);
             }

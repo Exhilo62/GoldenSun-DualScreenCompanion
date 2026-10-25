@@ -48,6 +48,15 @@ static SDL_GameController* pads[4];
 // here; the GBA picture is then drawn straight onto it and this window becomes the touch screen alone.
 static SDL_mutex* topLock;
 static bool dualScreen;
+// Which display shows what on a dual-screen device: normally this window (where the app was started) is the touch screen and the other display shows the
+// GBA picture. Handhelds differ in which physical screen the app opens on, so the screens can be swapped (ZL on a controller, or the W key): then this
+// window shows the picture and the other display shows the companion UI, and touches on it are sent back here by MainActivity.
+static bool swapScreens;
+static volatile bool surfaceStale;           // the other display must be redrawn even if the UI did not change (new surface, swap)
+static volatile bool extDown;                // a finger is down on the other display (swapped mode), in 320x240 UI coordinates
+static volatile int extTx, extTy;
+static int extW, extH;                       // size of the other display's surface, kept for mapping its touches
+
 #ifdef __ANDROID__
 static ANativeWindow* topWin;
 JNIEXPORT void JNICALL Java_com_exhilo_goldensundualscreen_MainActivity_nativeSetTopSurface(JNIEnv* env, jclass cls, jobject surface) {
@@ -57,11 +66,24 @@ JNIEXPORT void JNICALL Java_com_exhilo_goldensundualscreen_MainActivity_nativeSe
 	if (topWin) { ANativeWindow_release(topWin); topWin = NULL; }
 	if (surface) topWin = ANativeWindow_fromSurface(env, surface);
 	dualScreen = topWin != NULL;
+	surfaceStale = true;
+	extDown = false;
 	SDL_UnlockMutex(topLock);
 }
 
-// Nearest-neighbour fit of the 240x160 picture (RGB565, stride 256) onto the other display, black bars where the shapes differ.
-static void drawTopSurface(const uint16_t* src) {
+// Touch on the other display: action 0 = down / move, 1 = up; x, y are fractions of the surface. Mapped through the same letterbox the UI is drawn with.
+JNIEXPORT void JNICALL Java_com_exhilo_goldensundualscreen_MainActivity_nativeSurfaceTouch(JNIEnv* env, jclass cls, jint action, jfloat fx, jfloat fy) {
+	(void) env; (void) cls;
+	if (action != 0 || extW <= 0 || extH <= 0) { extDown = false; return; }
+	float sc = (float) extW / 320 < (float) extH / 240 ? (float) extW / 320 : (float) extH / 240;
+	float x = (fx * extW - (extW - 320 * sc) / 2) / sc, y = (fy * extH - (extH - 240 * sc) / 2) / sc;
+	if (x < 0 || y < 0 || x >= 320 || y >= 240) { extDown = false; return; }
+	extTx = (int) x; extTy = (int) y;
+	extDown = true;
+}
+
+// Nearest-neighbour fit of an RGB565 image (sw x sh, row stride in pixels) onto the other display, black bars where the shapes differ.
+static void drawSurface(const uint16_t* src, int sw, int sh, int stride) {
 	if (!topLock) return;
 	SDL_LockMutex(topLock);
 	if (topWin) {
@@ -69,16 +91,17 @@ static void drawTopSurface(const uint16_t* src) {
 		ANativeWindow_Buffer b;
 		if (ANativeWindow_lock(topWin, &b, NULL) == 0) {
 			if (b.format == WINDOW_FORMAT_RGB_565 && b.width > 0 && b.height > 0) {
-				float sc = (float) b.width / 240 < (float) b.height / 160 ? (float) b.width / 240 : (float) b.height / 160;
-				int dw = (int) (240 * sc), dh = (int) (160 * sc), x0 = (b.width - dw) / 2, y0 = (b.height - dh) / 2;
+				extW = b.width; extH = b.height;
+				float sc = (float) b.width / sw < (float) b.height / sh ? (float) b.width / sw : (float) b.height / sh;
+				int dw = (int) (sw * sc), dh = (int) (sh * sc), x0 = (b.width - dw) / 2, y0 = (b.height - dh) / 2;
 				static int xmap[4096];
-				static int mapW = -1;
+				static int mapW = -1, mapS = -1;
 				if (dw > 4096) dw = 4096;
-				if (mapW != dw) { for (int x = 0; x < dw; ++x) xmap[x] = x * 240 / dw; mapW = dw; }
+				if (mapW != dw || mapS != sw) { for (int x = 0; x < dw; ++x) xmap[x] = x * sw / dw; mapW = dw; mapS = sw; }
 				uint16_t* dst = b.bits;
 				memset(dst, 0, (size_t) b.stride * b.height * 2);
 				for (int y = 0; y < dh; ++y) {
-					const uint16_t* row = src + (y * 160 / dh) * 256;
+					const uint16_t* row = src + (y * sh / dh) * stride;
 					uint16_t* d = dst + (size_t) (y0 + y) * b.stride + x0;
 					for (int x = 0; x < dw; ++x) d[x] = row[xmap[x]];
 				}
@@ -89,7 +112,7 @@ static void drawTopSurface(const uint16_t* src) {
 	SDL_UnlockMutex(topLock);
 }
 #else
-static void drawTopSurface(const uint16_t* src) { (void) src; }
+static void drawSurface(const uint16_t* src, int sw, int sh, int stride) { (void) src; (void) sw; (void) sh; (void) stride; }
 #endif
 
 uint64_t plTicks(void) { return SDL_GetPerformanceCounter() * 1000000ull / SDL_GetPerformanceFrequency(); }   // microseconds
@@ -148,7 +171,12 @@ static void layout(void) {
 	SDL_GetRendererOutputSize(ren, &outW, &outH);
 	const int W = outW, H = outH;
 	topDst = (SDL_Rect) {0, 0, 0, 0};
-	if (dualScreen) {   // this display is the touch screen alone: the UI as large as it fits, no on-screen buttons (the device has its own)
+	if (dualScreen && swapScreens) {   // swapped: this window shows the picture alone, the other display has the UI
+		float k = (float) W / 240 < (float) H / 160 ? (float) W / 240 : (float) H / 160;
+		topDst = rc((W - 240 * k) / 2, (H - 160 * k) / 2, 240 * k, 160 * k);
+		botDst = (SDL_Rect) {0, 0, 0, 0};
+		for (int i = 0; i < CT_COUNT; ++i) ctl[i].r = (SDL_Rect) {-1, -1, 0, 0};
+	} else if (dualScreen) {   // this display is the touch screen alone: the UI as large as it fits, no on-screen buttons (the device has its own)
 		float k = (float) W / 320 < (float) H / 240 ? (float) W / 320 : (float) H / 240;
 		botDst = rc((W - 320 * k) / 2, (H - 240 * k) / 2, 320 * k, 240 * k);
 		for (int i = 0; i < CT_COUNT; ++i) ctl[i].r = (SDL_Rect) {-1, -1, 0, 0};
@@ -307,11 +335,23 @@ static int SDLCALL lifecycleWatch(void* ud, SDL_Event* e) {
 	return 0;
 }
 
+static bool faceFlip;   // face buttons by position instead of by label (Select + ZL)
+static const char* flipPath(void) {
+	static char path[160];
+	return gsAppFilePath("facebuttons.txt", path, sizeof(path));
+}
+
+static const char* swapPath(void) {
+	static char path[160];
+	return gsAppFilePath("screenswap.txt", path, sizeof(path));
+}
+
 static const char* padModePath(void) {
 	static char path[160];
 	return gsAppFilePath("padmode.txt", path, sizeof(path));
 }
 
+static bool swapPressed;
 static float tapX, tapY;
 static int tapHold;
 
@@ -321,6 +361,7 @@ void plPollInput(PlInput* in) {
 	while (SDL_PollEvent(&e)) {
 		if (e.type == SDL_QUIT) quitRequested = true;
 		if (e.type == SDL_FINGERDOWN) { tapX = e.tfinger.x; tapY = e.tfinger.y; tapHold = 4; }   // a very quick tap must still be seen for a few frames
+		if (e.type == SDL_KEYDOWN && !e.key.repeat && e.key.keysym.scancode == SDL_SCANCODE_W) swapPressed = true;   // W: swap the two screens (an event, so a very short key press still counts)
 		if (e.type == SDL_CONTROLLERDEVICEADDED || e.type == SDL_CONTROLLERDEVICEREMOVED) openPads();
 	}
 	padsShown = !dualScreen && (padMode == 1 || (padMode == 0 && padsConnected() == 0));
@@ -338,11 +379,14 @@ void plPollInput(PlInput* in) {
 	if (k[SDL_SCANCODE_LEFT]) keys |= 1 << GBA_KEY_LEFT;
 	if (k[SDL_SCANCODE_RIGHT]) keys |= 1 << GBA_KEY_RIGHT;
 	in->turbo = k[SDL_SCANCODE_TAB] != 0;
+	bool swapKey = false, selectHeld = false, zlHeld = false;
 	for (int p = 0; p < 4; ++p) {   // game controllers: east / south = A / B like the GBA's layout
 		SDL_GameController* c = pads[p];
 		if (!c || !SDL_GameControllerGetAttached(c)) continue;
-		if (SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_B)) keys |= 1 << GBA_KEY_A;
-		if (SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_A)) keys |= 1 << GBA_KEY_B;
+		// Face buttons by the label the device reports (A = A, B = B, like the 3DS); Select + ZL flips A/B and X/Y for pads that report by position instead.
+		if (SDL_GameControllerGetButton(c, faceFlip ? SDL_CONTROLLER_BUTTON_B : SDL_CONTROLLER_BUTTON_A)) keys |= 1 << GBA_KEY_A;
+		if (SDL_GameControllerGetButton(c, faceFlip ? SDL_CONTROLLER_BUTTON_A : SDL_CONTROLLER_BUTTON_B)) keys |= 1 << GBA_KEY_B;
+		if (SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_BACK)) selectHeld = true;
 		if (SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_LEFTSHOULDER)) keys |= 1 << GBA_KEY_L;
 		if (SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER)) keys |= 1 << GBA_KEY_R;
 		if (SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_START)) keys |= 1 << GBA_KEY_START;
@@ -356,8 +400,30 @@ void plPollInput(PlInput* in) {
 		if (lx > 16000) keys |= 1 << GBA_KEY_RIGHT;
 		if (ly < -16000) keys |= 1 << GBA_KEY_UP;
 		if (ly > 16000) keys |= 1 << GBA_KEY_DOWN;
-		if (SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) > 16000 || SDL_GameControllerGetButton(c, SDL_CONTROLLER_BUTTON_X)) in->turbo = true;   // like the 3DS: Y (west) or ZR
+		if (SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_TRIGGERLEFT) > 16000) zlHeld = true;
+		if (SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) > 16000 || SDL_GameControllerGetButton(c, faceFlip ? SDL_CONTROLLER_BUTTON_X : SDL_CONTROLLER_BUTTON_Y)) in->turbo = true;   // like the 3DS: Y or ZR
 	}
+
+	swapKey = zlHeld && !selectHeld;   // ZL swaps the two screens; Select + ZL flips the face-button layout
+	static bool flipWas;
+	bool flipNow = zlHeld && selectHeld;
+	if (flipNow && !flipWas) {
+		faceFlip = !faceFlip;
+		FILE* ff = fopen(flipPath(), "w");
+		if (ff) { fprintf(ff, "%d\n", faceFlip ? 1 : 0); fclose(ff); }
+	}
+	flipWas = flipNow;
+	static bool swapWas;
+	if (((swapKey && !swapWas) || swapPressed) && dualScreen) {
+		swapPressed = false;
+		swapScreens = !swapScreens;
+		surfaceStale = true;
+		extDown = false;
+		FILE* sf = fopen(swapPath(), "w");
+		if (sf) { fprintf(sf, "%d\n", swapScreens ? 1 : 0); fclose(sf); }
+	}
+	swapPressed = false;
+	swapWas = swapKey;
 
 	// pointers: every finger on the touch screen plus the mouse button
 	int px[12], py[12], np = 0;
@@ -375,6 +441,7 @@ void plPollInput(PlInput* in) {
 	if ((SDL_GetMouseState(&mx, &my) & SDL_BUTTON_LMASK) && np < 11) { px[np] = mx * outW / (winW ? winW : 1); py[np] = my * outH / (winH ? winH : 1); ++np; }
 	in->touch = false;
 	in->tx = in->ty = 0;
+	if (dualScreen && swapScreens && extDown) { in->touch = true; in->tx = extTx; in->ty = extTy; }   // a finger on the other display (the UI is there)
 	static bool ffWas;
 	bool ffNow = false, modeNow = false;
 	static bool modeWas;
@@ -434,19 +501,21 @@ bool plTwoCore(void) { return false; }
 bool plJobSlotFree(void) { return true; }
 
 static void present(Job* j) {
-	if (dualScreen) drawTopSurface(j->top);
-	else SDL_UpdateTexture(topTex, NULL, j->top, 256 * 2);
+	if (!dualScreen || swapScreens) SDL_UpdateTexture(topTex, NULL, j->top, 256 * 2);
+	else drawSurface(j->top, 240, 160, 256);
+	bool uiChanged = botDirty;
 	if (botDirty) {
 		for (int x = 0; x < GFX_W; ++x)
 			for (int y = 0; y < GFX_H; ++y) rows[y * GFX_W + x] = privBot[x * GFX_H + (GFX_H - 1 - y)];
-		SDL_UpdateTexture(botTex, NULL, rows, GFX_W * 2);
+		if (!(dualScreen && swapScreens)) SDL_UpdateTexture(botTex, NULL, rows, GFX_W * 2);
 		botDirty = false;
 	}
+	if (dualScreen && swapScreens && (uiChanged || surfaceStale)) { drawSurface(rows, GFX_W, GFX_H, GFX_W); surfaceStale = false; }
 	SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
 	SDL_RenderClear(ren);
 	SDL_Rect topSrc = {0, 0, 240, 160};
-	if (!dualScreen) SDL_RenderCopy(ren, topTex, &topSrc, &topDst);
-	SDL_RenderCopy(ren, botTex, NULL, &botDst);
+	if (!dualScreen || swapScreens) SDL_RenderCopy(ren, topTex, &topSrc, &topDst);
+	if (botDst.w > 0) SDL_RenderCopy(ren, botTex, NULL, &botDst);
 	if (!dualScreen) drawControls();
 	if (shotPath && ++frameNo >= shotFrames) {
 		SDL_Surface* sf = SDL_CreateRGBSurfaceWithFormat(0, outW, outH, 32, SDL_PIXELFORMAT_ARGB8888);
@@ -561,7 +630,6 @@ bool plChooseGame(GsGameId* out) {
 #endif
 
 bool plInit(void) {
-	SDL_SetHint(SDL_HINT_GAMECONTROLLER_USE_BUTTON_LABELS, "0");   // face buttons by position on every pad (east = A, south = B, like the 3DS), Nintendo pads included
 	SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");   // fingers are read directly (several at once: buttons plus the touch screen)
 	SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "0");
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return false; }
@@ -588,6 +656,16 @@ bool plInit(void) {
 		FILE* pf = fopen(padModePath(), "r");
 		int v;
 		if (pf) { if (fscanf(pf, "%d", &v) == 1 && v >= 0 && v <= 2) padMode = v; fclose(pf); }
+	}
+	{
+		FILE* sf = fopen(swapPath(), "r");
+		int v;
+		if (sf) { if (fscanf(sf, "%d", &v) == 1) swapScreens = v == 1; fclose(sf); }
+	}
+	{
+		FILE* ff = fopen(flipPath(), "r");
+		int v;
+		if (ff) { if (fscanf(ff, "%d", &v) == 1) faceFlip = v == 1; fclose(ff); }
 	}
 	openPads();
 	layout();

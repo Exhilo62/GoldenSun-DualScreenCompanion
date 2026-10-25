@@ -40,7 +40,8 @@ Full step-by-step guide, sound details and troubleshooting: **[docs/EMULATORS.md
 **GoldenSunDualScreen_v0.1.0-beta.apk** (attached to the release) runs the same app natively on Android: the game on top and the companion UI below (portrait), side by side (landscape), or, on a **dual-screen handheld** such as the Retroid Pocket Duo, the game on one display and the companion UI on the other. You add your own ROM with a file picker; it is copied into the app and never leaves your device.
 - Install: allow "install unknown apps" for your browser or file manager, open the `.apk`. It is signed with the project's own key (not from Google Play).
 - First start: tap **Add ROM file**, choose your Golden Sun / The Lost Age `.gba`, then **Play**.
-- Controls: on-screen buttons (a small **PAD** chip cycles Auto / On / Off; Auto hides them while a controller is connected), game controllers (east = A, south = B, shoulders = L / R, Start / Back, D-pad or left stick, west button or right trigger = fast forward), or a keyboard.
+- Controls: on-screen buttons (a small **PAD** chip cycles Auto / On / Off; Auto hides them while a controller is connected), game controllers (A = A, B = B, shoulders = L / R, Start / Back, D-pad or left stick, Y or right trigger = fast forward; Select + ZL flips A/B and X/Y if your device reports them the other way), or a keyboard.
+- **Dual-screen handhelds:** if the two screens are the wrong way round, press **ZL** (or **W**) to swap them; it is remembered.
 - Autosave is written when you leave the app.
 - **Status:** beta. It has been run on an Android emulator only (ROM picker, layouts, touch, saving); sound, speed and the dual-screen output on real hardware are untested, so please report how it goes (device model, Android version). Details: [android/README.md](android/README.md).
 
