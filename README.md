@@ -4,6 +4,10 @@
 
 ![Screenshots: game picker, party, Psynergy, Djinn, items, whole-area map and save slots](docs/preview.png)
 
+## Support and community
+Questions, help or just want to chat? **[Join the Discord](https://discord.gg/w2DSajEUx)**. Bugs and feature requests go in [GitHub Issues](../../issues/new/choose).
+
+
 **Golden Sun - Dual Screen Companion** (working title; the repository and file names still say GoldenSun3DS): play **Golden Sun** and **Golden Sun: The Lost Age** on a Nintendo 3DS with a touch companion on the bottom screen: party, Psynergy, Djinn, a live exploration map, items, battle info and more. The game itself runs on the top screen through the [mGBA](https://mgba.io) core, using your own ROMs.
 
 > ## Beta v0.1.0
