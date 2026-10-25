@@ -535,6 +535,41 @@ void plPollInput(PlInput* in) {
 
 	static int loops;   // test helper
 	++loops;
+	{   // test helpers: GS_SPAM="every;from-to;from-to" taps A for three loops out of every N inside the windows; GS_SCRIPT="loop:key,loop:key" presses
+		// U D L R A B S(tart) E(select) for six loops at the given loop
+		if (getenv("GS_TURBO")) in->turbo = true;   // test helper: run at fast-forward speed
+	const char* spam = getenv("GS_SPAM");
+		if (spam) {
+			int every = atoi(spam);
+			const char* w = strchr(spam, ';');
+			bool inWin = false;
+			while (every > 0 && w) {
+				int f, t, used = 0;
+				if (sscanf(w + 1, "%d-%d%n", &f, &t, &used) == 2) { if (loops >= f && loops <= t) inWin = true; w += 1 + used; } else break;
+				w = strchr(w, ';');
+			}
+			if (every > 0 && inWin && (loops % every) < 3) in->keys |= 1u << GBA_KEY_A;
+		}
+		const char* sc = getenv("GS_SCRIPT");
+		for (int at, used; sc && sscanf(sc, "%d:%n", &at, &used) == 1; ) {
+			char key = sc[used];
+			if (loops >= at && loops < at + 6) {
+				switch (key) {
+				case 'U': in->keys |= 1u << GBA_KEY_UP; break;
+				case 'D': in->keys |= 1u << GBA_KEY_DOWN; break;
+				case 'L': in->keys |= 1u << GBA_KEY_LEFT; break;
+				case 'R': in->keys |= 1u << GBA_KEY_RIGHT; break;
+				case 'A': in->keys |= 1u << GBA_KEY_A; break;
+				case 'B': in->keys |= 1u << GBA_KEY_B; break;
+				case 'S': in->keys |= 1u << GBA_KEY_START; break;
+				case 'E': in->keys |= 1u << GBA_KEY_SELECT; break;
+				}
+			}
+			sc += used + 1;
+			if (*sc != ',') break;
+			++sc;
+		}
+	}
 	const char* sp = getenv("GS_TOUCH");   // several presses can be chained with ';'
 	for (int tx, ty, t0, tn, used; sp && sscanf(sp, "%d,%d,%d,%d%n", &tx, &ty, &t0, &tn, &used) == 4; ) {
 		if (loops >= t0 && loops < t0 + tn) { in->touch = true; in->tx = tx; in->ty = ty; }

@@ -108,3 +108,6 @@ Not found / not trusted yet:
 | Repeat round, Message log, Bestiary | same code as Golden Sun; not exercised in a Lost Age fight in this audit |
 | Save slots, autosave, rewind, top-screen modes, "Menus below", "Mute if slow" | shared code, unaffected |
 | Password keyboard | Lost Age only |
+
+## Party list in the opening (Oct 25)
+A new game without a password leaves the save-data party list (`0x0200001C`) all zeros until the opening is over, so reading it gave four copies of record 0 (Isaac, Lv28, the default clear-data party). The game keeps its active party in a second copy at `0x02000458` (8 entries, the first four are the party; in every good state it matches the save-data list), and in the opening that copy is the real list (Felix, Jenna, Mia at the Venus Lighthouse; Jenna alone once she leads). `gs_state.c` now takes the leading distinct entries of the save-data list and, when that list is empty or repeats an entry, the leading distinct entries of the second copy (`GsRam.partyOrderAlt`). Found by running a new game on the desktop build (scripted keys) and diffing memory against saved states; checked on the desktop build at the Lighthouse (cards match the game's own menu) and with selftest (110/110).

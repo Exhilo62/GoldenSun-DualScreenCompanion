@@ -4,6 +4,7 @@ Second test build. **We are still looking for obvious problems**, so please try 
 
 ### New in 0.1.1
 - **Back to the battle:** in a battle, after tapping another tab, the footer (bottom left) turns gold and says "Tap here: back to the battle"; tap it to return to the Battle panel.
+- **Fix:** The Lost Age new game without a password no longer shows four Isaacs in the party cards during the opening.
 - **Android app (beta)**, see below: the same app for Android phones, tablets and dual-screen handhelds.
 
 ### Install

@@ -24,7 +24,7 @@ const GsRam gsRamGs1 = {GS_AREA_A, GS_CAM_X, GS_CAM_Y, GS_PLAYER_X, GS_PLAYER_Y,
 // description 0x03007D34, target name 0x03007CF4, ally target index 0x03007CC0 (party order; depth 2 with the flag at 255), highlighted command text 0x02035708; see docs/LOST_AGE.md. Camera scroll is at 0x0300112C/2E (leads the picture by one frame; camLag); 0x020322F6/FE is a smoother 1 px/frame counter that does NOT match the picture. The RAM player
 // coordinates (0x03001124/26, 0x02030ECA/CE) are not used, so playerX/playerY are 0 here and the reader derives the world position from camera + leader sprite.
 const GsRam gsRamTla = {0x02000420u, 0x0300112Cu, 0x0300112Eu, 0, 0, 0x02000250u, 0x02000520u, 0x020308C8u, 0x02000060u,
-	0, 0x0200001Cu, 0x03007E48u, 0, 0x03007DD3u, 0x03007DB8u, 0, 0x03007D34u, 0x03007CC0u, 0, true, 18, 0x080B2364u, 0x02039238u, 0x080B12C8u, 0x02031E40u, false, 0x02035708u, 0x03007CF4u, 1};
+	0, 0x0200001Cu, 0x03007E48u, 0, 0x03007DD3u, 0x03007DB8u, 0, 0x03007D34u, 0x03007CC0u, 0, true, 18, 0x080B2364u, 0x02039238u, 0x080B12C8u, 0x02031E40u, false, 0x02035708u, 0x03007CF4u, 1, 0x02000458u};
 static const GsRam* ram = &gsRamGs1;
 void gsSetRam(const GsRam* r) { ram = r; }
 const GsRam* gsRam(void) { return ram; }
@@ -132,10 +132,32 @@ void gsReadState(GsState* out, GsMemRead rd, void* ctx) {
 		out->playerY = live ? out->camY + (out->hasSprite ? out->sprY + 26 : 80) : 0;
 	}
 	int size = 0;
+	int pre[GS_PARTY_MAX], pn = -1;   // games without a party mask: the leading distinct entries of the order array are the party
 	if (ram->partyMask) {
 		for (uint32_t mask = rd(ctx, ram->partyMask, 1); mask; mask >>= 1) size += mask & 1;
 	} else {
-		while (size < GS_PARTY_MAX && rd(ctx, ram->partyOrder + (uint32_t) size, 1) < GS_CHAR_COUNT) ++size;
+		bool dup = false;
+		pn = 0;
+		for (int i = 0; i < GS_PARTY_MAX; ++i) {
+			uint32_t r = rd(ctx, ram->partyOrder + (uint32_t) i, 1);
+			if (r >= GS_CHAR_COUNT) break;
+			for (int k = 0; k < pn; ++k) if (pre[k] == (int) r) dup = true;
+			if (dup) break;
+			pre[pn++] = (int) r;
+		}
+		// The Lost Age's opening (before the first real party exists) leaves the save-data array empty (zeros): the game then keeps its active party in a
+		// second copy, whose first entry is the current leader (Jenna alone at the Venus Lighthouse).
+		if (dup && ram->partyOrderAlt) {
+			pn = 0;
+			for (int i = 0; i < GS_PARTY_MAX; ++i) {
+				uint32_t r = rd(ctx, ram->partyOrderAlt + (uint32_t) i, 1);
+				bool again = r >= GS_CHAR_COUNT;
+				for (int k = 0; k < pn; ++k) if (pre[k] == (int) r) again = true;
+				if (again) break;
+				pre[pn++] = (int) r;
+			}
+		}
+		size = pn;
 	}
 	if (size < 1) size = 1;
 	if (size > GS_PARTY_MAX) size = GS_PARTY_MAX;
@@ -144,10 +166,14 @@ void gsReadState(GsState* out, GsMemRead rd, void* ctx) {
 	// Party order array: record indices, 0xFF-terminated. Fall back to join order if it looks invalid.
 	int order[GS_PARTY_MAX], slotOfRec[GS_CHAR_COUNT];
 	int n = 0;
-	for (int i = 0; i < GS_PARTY_MAX; ++i) {
-		uint32_t r = rd(ctx, ram->partyOrder + (uint32_t) i, 1);
-		if (r >= GS_CHAR_COUNT) break;
-		order[n++] = (int) r;
+	if (pn >= 0) {
+		for (; n < pn; ++n) order[n] = pre[n];
+	} else {
+		for (int i = 0; i < GS_PARTY_MAX; ++i) {
+			uint32_t r = rd(ctx, ram->partyOrder + (uint32_t) i, 1);
+			if (r >= GS_CHAR_COUNT) break;
+			order[n++] = (int) r;
+		}
 	}
 	if (n > size) n = size;   // entries after the last member can be stale (a replaced member leaves its old index behind): the mask gives the true size
 	if (n == size && ram->partyMask) {   // a fresh join can leave the list unfilled (all zeros): it must name distinct members that the mask contains
