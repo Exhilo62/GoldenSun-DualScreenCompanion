@@ -8,6 +8,7 @@
 - The Lost Age, new game without a password: the party cards showed four copies of Isaac (Lv28) through the opening. The save-data party list is still empty there; the game keeps its active party in a second copy, which is now used when the first one is empty or invalid. At the Venus Lighthouse the cards now show Felix, Jenna and Mia (and Jenna alone later), as the game's own menu does.
 
 **Android app (beta)**
+- Sound: resampled to the device's own rate with mGBA's sinc resampler and paced by the sound card's clock (no more crackling from the queue running dry or overflowing).
 - Native Android build of the same app (`android/`): SDL2 + mGBA, window-shaped layout (portrait stack, landscape side by side), on-screen buttons with a PAD chip (Auto / On / Off), game controllers mapped like the 3DS, ROM file picker, autosave when the app is left, launcher icon on the same navy tile as the 3DS HOME icon, signed release APK.
 - Dual-screen handhelds: the game goes to the second display and the companion UI fills the first. ZL swaps the two screens; the start-up banner and the game picture follow the Menu tab's "Top screen: Fill" (stretched to 16:9).
 - Desktop (Windows) build of the same app (`desktop/`).

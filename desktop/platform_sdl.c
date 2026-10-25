@@ -10,6 +10,7 @@
 
 #include <mgba/core/core.h>
 #include <mgba-util/audio-buffer.h>
+#include <mgba-util/audio-resampler.h>
 #include <mgba/core/interface.h>
 #include <mgba/core/log.h>
 #include <mgba/internal/gba/input.h>
@@ -138,28 +139,64 @@ static void drawSurface(const uint16_t* src, int sw, int sh, int stride, bool st
 uint64_t plTicks(void) { return SDL_GetPerformanceCounter() * 1000000ull / SDL_GetPerformanceFrequency(); }   // microseconds
 
 // ---- audio ----------------------------------------------------------------------------------------------------------------
-static void postAudioBuffer(struct mAVStream* stream, struct mAudioBuffer* buffer) {
-	(void) stream;
-	if (!audioDev || audioMute) { mAudioBufferClear(buffer); return; }
-	static int16_t tmp[AUDIO_SAMPLES * 2];
-	int n = (int) mAudioBufferAvailable(buffer);
-	while (n > 0) {
-		int c = n < AUDIO_SAMPLES ? n : AUDIO_SAMPLES;
-		mAudioBufferRead(buffer, tmp, (size_t) c);
-		if (SDL_GetQueuedAudioSize(audioDev) < 32768u * 4 * 12 / 100) SDL_QueueAudio(audioDev, tmp, (Uint32) c * 4);   // keep under ~120 ms queued
-		n -= c;
-	}
+// The core's 32768 Hz audio is resampled (mGBA's sinc resampler) to the device's own rate and queued in a ring that the device's callback drains; the
+// emulation is paced by how full that ring is, so it follows the sound card's clock instead of drifting against the system clock (which made the
+// queue run dry or overflow every few seconds: audible clicks). While the sound is muted (fast forward, "Mute if slow") or there is no device, the
+// loop is paced by the wall clock as before.
+#define AUDIO_RING_FRAMES 16384
+#define AUDIO_TARGET_FRAMES 2400   // about 50 ms at 48 kHz: the most the loop lets get queued before it waits
+static SDL_mutex* audioLock;
+static struct mAudioBuffer audioRing;
+static struct mAudioResampler audioResampler;
+static unsigned audioDevRate = 48000, audioSrcRate = 32768;
+static bool audioReady;
+static unsigned audioCalls, audioUnderruns, paceCalls;   // GS_AUDIOSTAT=1 prints them when the app exits
+static uint64_t audioStart;
+
+static void SDLCALL audioCallback(void* ud, Uint8* data, int len) {
+	(void) ud;
+	int want = len / 4;
+	SDL_LockMutex(audioLock);
+	int got = (int) mAudioBufferRead(&audioRing, (int16_t*) data, (size_t) want);
+	SDL_UnlockMutex(audioLock);
+	++audioCalls;
+	if (got < want) { memset(data + got * 4, 0, (size_t) (want - got) * 4); ++audioUnderruns; }
 }
 
-static void audioRateChanged(struct mAVStream* stream, unsigned rate) { (void) stream; (void) rate; }
+static int audioFill(void) {
+	SDL_LockMutex(audioLock);
+	int n = (int) mAudioBufferAvailable(&audioRing);
+	SDL_UnlockMutex(audioLock);
+	return n;
+}
+
+static void postAudioBuffer(struct mAVStream* stream, struct mAudioBuffer* buffer) {
+	(void) stream;
+	if (!audioReady || audioMute) { mAudioBufferClear(buffer); return; }
+	SDL_LockMutex(audioLock);
+	mAudioResamplerSetSource(&audioResampler, buffer, audioSrcRate, true);
+	mAudioResamplerProcess(&audioResampler);
+	SDL_UnlockMutex(audioLock);
+}
+
+static void audioRateChanged(struct mAVStream* stream, unsigned rate) { (void) stream; if (rate) audioSrcRate = rate; }
 
 void plAudioInit(struct mCore* core) {
 	core->setAudioBufferSize(core, AUDIO_SAMPLES);
+	audioSrcRate = core->audioSampleRate(core);
 	if (SDL_InitSubSystem(SDL_INIT_AUDIO) == 0) {
-		SDL_AudioSpec want = {0}, got;
-		want.freq = 32768; want.format = AUDIO_S16SYS; want.channels = 2; want.samples = 1024;
-		audioDev = SDL_OpenAudioDevice(NULL, 0, &want, &got, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
-		if (audioDev) SDL_PauseAudioDevice(audioDev, 0);
+		SDL_AudioSpec want = {0}, got = {0};
+		want.freq = 48000; want.format = AUDIO_S16SYS; want.channels = 2; want.samples = 1024; want.callback = audioCallback;
+		audioDev = SDL_OpenAudioDevice(NULL, 0, &want, &got, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE | SDL_AUDIO_ALLOW_SAMPLES_CHANGE);
+		if (audioDev && got.channels == 2 && got.format == AUDIO_S16SYS) {
+			audioDevRate = (unsigned) got.freq;
+			audioLock = SDL_CreateMutex();
+			mAudioBufferInit(&audioRing, AUDIO_RING_FRAMES, 2);
+			mAudioResamplerInit(&audioResampler, mINTERPOLATOR_SINC);
+			mAudioResamplerSetDestination(&audioResampler, &audioRing, audioDevRate);
+			audioReady = true;
+			SDL_PauseAudioDevice(audioDev, 0);
+		} else if (audioDev) { SDL_CloseAudioDevice(audioDev); audioDev = 0; }
 	}
 	static struct mAVStream stream;
 	stream.postAudioBuffer = postAudioBuffer;
@@ -619,6 +656,13 @@ void plJobSubmit(Job* j) {
 void plJobFinish(Job* j) { appProcessJob(j, privBot); }   // the final map save
 
 uint64_t plPace(void) {
+	++paceCalls;
+	if (!audioStart) audioStart = plTicks();
+	if (audioReady && !audioMute) {   // paced by the sound card: wait until the queued sound has drained to the target
+		uint64_t t0 = plTicks();
+		for (int guard = 0; guard < 60 && audioFill() > AUDIO_TARGET_FRAMES; ++guard) SDL_Delay(1);
+		return plTicks() - t0;
+	}
 	static uint64_t deadline;
 	uint64_t now = plTicks(), slept = 0;
 	if (!deadline) deadline = now;
@@ -636,6 +680,7 @@ void plPerfExtra(char* out, size_t n) { if (n) out[0] = 0; }
 bool plRunning(void) { return !quitRequested; }
 
 void plExit(void) {
+	if (getenv("GS_AUDIOSTAT")) fprintf(stderr, "audio: %u callbacks, %u underruns (device %u Hz, core %u Hz); %u loops in %.1f s = %.2f per second\n", audioCalls, audioUnderruns, audioDevRate, audioSrcRate, paceCalls, (plTicks() - audioStart) / 1e6, paceCalls * 1e6 / (double) (plTicks() - audioStart + 1));
 	if (audioDev) SDL_CloseAudioDevice(audioDev);
 	SDL_Quit();
 }

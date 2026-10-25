@@ -8,6 +8,9 @@ Needs: JDK 17+, the Android SDK (platform 34, build-tools 34.0.0, NDK 26.3.11579
 Put the repo in a path without spaces, then run `android\build_apk.bat` (it reads `JAVA_HOME`, `ANDROID_HOME`, `SDL2_DIR`; the defaults in the script are this project's folders).
 Output: `android/app/build/outputs/apk/debug/app-debug.apk`.
 
+## Sound
+The core's audio (its rate is read from the core, 65536 Hz in Golden Sun) is resampled to the device's rate (usually 48 kHz) with mGBA's sinc resampler into a ring buffer that the audio callback drains. The emulation is paced by the ring's fill level (about 50 ms), i.e. by the sound card's clock, so the queue neither runs dry nor overflows; while sound is muted (fast forward, "Mute if slow") it is paced by the wall clock. `GS_AUDIOSTAT=1` (desktop) prints the callback and underrun counts when the app exits.
+
 ## Start-up screen
 (On a dual-screen device the banner is stretched to 16:9 like the game picture when "Top screen: Fill" is set, which is the default.)
 The same themed pick screen as the 3DS app (banner with the logo, a card per game, and **Add ROM file**): tap a card, or use the D-pad and A / Start on a controller. A game without a ROM is dimmed; tapping it (or **Add ROM file**) opens the system file picker. Back leaves the app from this screen only.
