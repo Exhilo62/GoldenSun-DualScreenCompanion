@@ -28,3 +28,11 @@ goldensunsaves/
 tools/patcher/bin/*.exe
 desktop/build/
 desktop/deps/
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/app/.cxx/
+android/local.properties
+android/build_log.txt
