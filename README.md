@@ -4,14 +4,13 @@
 
 ![Screenshots: game picker, party, Psynergy, Djinn, items, whole-area map and save slots](docs/preview.png)
 
-## Support and community
-Questions, help or just want to chat? **[Join the Discord](https://discord.gg/w2DSajEUx)**. Bugs and feature requests go in [GitHub Issues](../../issues/new/choose).
-
-
 **Golden Sun - Dual Screen Companion** (working title; the repository and file names still say GoldenSun3DS): play **Golden Sun** and **Golden Sun: The Lost Age** on a Nintendo 3DS with a touch companion on the bottom screen: party, Psynergy, Djinn, a live exploration map, items, battle info and more. The game itself runs on the top screen through the [mGBA](https://mgba.io) core, using your own ROMs.
 
 > ## Beta v0.1.0
 > This is the first public test build. **We are looking for obvious problems**: crashes, freezes, menus that do something wrong, wrong numbers on the bottom screen, installer trouble. Please [open an issue](../../issues/new?template=bug_report.md) with what you did, what you expected, and your console (New / Old 3DS, real hardware or Azahar). The line at the bottom of the **Menu** tab (`NNfps ... eMM ... cNN`) helps a lot for speed reports.
+
+## Support and community
+Questions, help or just want to chat? **[Join the Discord](https://discord.gg/w2DSajEUx)**. Bugs and feature requests go in [GitHub Issues](../../issues/new/choose).
 
 ## What you need
 - A 3DS with custom firmware (to install a `.cia` with FBI, or to run `.3dsx` files from the Homebrew Launcher), **or** the [Azahar](https://azahar-emu.org) emulator (Windows/Android).
