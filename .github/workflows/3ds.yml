@@ -21,12 +21,14 @@ jobs:
           apt-get update && apt-get install -y cmake make python3 git
           dkp-pacman -Sy --noconfirm 3ds-dev
 
+      # The 3ds-dev image ships a zlib portlib; the app links the zlib that mGBA builds itself (build/mgba-3ds/zlib/libzlibstatic.a), as in the local build, so the
+      # system one is hidden from CMake and the bundled `zlibstatic` target exists.
       - name: mGBA core for the 3DS (docs/BUILDING.md, step 2)
         run: |
           mkdir -p build/mgba-3ds && cd build/mgba-3ds
           cmake ../../third_party/mgba -DCMAKE_TOOLCHAIN_FILE=$PWD/../../third_party/mgba/src/platform/3ds/CMakeToolchain.txt \
             -DCMAKE_BUILD_TYPE=Release -DBUILD_STATIC=ON -DBUILD_LTO=ON -DM_CORE_GB=OFF -DUSE_DEBUGGERS=OFF -DUSE_PNG=OFF -DUSE_LIBZIP=OFF \
-            -DUSE_SQLITE3=OFF -DUSE_FFMPEG=OFF -DUSE_EDITLINE=OFF -DUSE_EPOXY=OFF -DBUILD_QT=OFF -DBUILD_SDL=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+            -DUSE_SQLITE3=OFF -DUSE_FFMPEG=OFF -DUSE_EDITLINE=OFF -DUSE_EPOXY=OFF -DBUILD_QT=OFF -DBUILD_SDL=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_DISABLE_FIND_PACKAGE_ZLIB=ON
           make mgba zlibstatic
 
       - name: App
