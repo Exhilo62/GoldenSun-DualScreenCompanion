@@ -68,6 +68,9 @@ python3 tools/selftest.py # host-side tests (needs gcc and a host build of mGBA,
 ```
 `tools/make_dist.ps1` also needs `makerom.exe` and `bannertool.exe` (both MIT licensed) in `tools/patcher/bin/`.
 
+## AI use
+Large parts of this project's code, tooling and documentation were written with the help of an AI coding assistant (Claude, by Anthropic), under the maintainer's direction and testing. The code is released under the MIT License like the rest of the project. The game data (maps, text) is read from the player's own ROM at runtime, and no ROMs or game code are included.
+
 ## Credits and legal
 - Emulation: [mGBA](https://github.com/mgba-emu/mgba) by endrift and contributors (MPL-2.0). Pinned as a submodule at `third_party/mgba`.
 - The CIA output uses `makerom` (3DSGuy) and `bannertool` (Steveice10), MIT licensed.
