@@ -53,3 +53,10 @@ Estimate: roughly 8-12 working sessions to a usable beta APK, after which mainte
 
 ## Suggested first step
 Work package 1, the desktop spike: it needs only SDL2 and proves most of the design with no phone involved.
+
+## Status (Oct 24): work package 1 done
+The desktop spike runs: `desktop/main_sdl.c` is about 150 lines of SDL2 and shows the GBA picture plus the companion UI (tabs, party, Psynergy, Djinn, items, and the ROM-drawn maps with the player marker) in one window, with the mouse as the touch screen.
+- The shared core compiled with Visual C++ **without any source changes**: a force-included header (`desktop/msvc_compat.h`) only swallows `__attribute__`. That confirms the core is portable; Android (clang, NDK) is the more forgiving case.
+- mGBA builds with MSVC as a static library (`LIBMGBA_ONLY`, no zlib/png/ffmpeg); the result runs a real Golden Sun state at full speed.
+- Pitfall found: the application must be compiled with the same `-D` flags as the mGBA library (`ENABLE_DEBUGGERS` and others change struct layouts); a mismatch crashed `core->init`. The Android CMake build must use one shared flag list.
+- Not done: touch actions that press game buttons (they live in `main.c`, work package 2), audio, a ROM picker.
