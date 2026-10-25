@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.1.1-beta - back-to-battle, first Android build
+**Battle panel**
+- During a battle the bottom screen opens the Battle panel by itself. If you tap another tab to look something up, the footer (bottom left) turns gold and reads "Tap here: back to the battle"; tapping it returns to the Battle panel. Before, the Battle panel could only be reached again in the next battle.
+
+**Android app (beta)**
+- Native Android build of the same app (`android/`): SDL2 + mGBA, window-shaped layout (portrait stack, landscape side by side), on-screen buttons with a PAD chip (Auto / On / Off), game controllers mapped like the 3DS, ROM file picker, autosave when the app is left, launcher icon, signed release APK.
+- Dual-screen handhelds: the game goes to the second display and the companion UI fills the first.
+- Desktop (Windows) build of the same app (`desktop/`).
+- The app is now split into a shared core (`src/app.c`) and per-platform layers (`platform_3ds.c`, `desktop/platform_sdl.c`); the 3DS behaviour is unchanged.
+
+**Under the hood**
+- The 3DS app is the same as 0.1.0 apart from the Battle panel change; the code is now split into a shared core and a 3DS layer so that the Android and desktop builds run the same logic.
+
 ## v0.1.0-beta - first public test build
 Goal of this release: find obvious problems. Everything below is new in a first release.
 
@@ -21,15 +34,6 @@ Goal of this release: find obvious problems. Everything below is new in a first 
 **Convenience**
 - Autosave and resume (on by default), three save-state slots with thumbnails, rewind 5 s, rotating `.sav` backups.
 - Fast forward with frame cap, automatic frame skip when the console cannot hold full speed, non-blocking SD writes.
-
-**Battle panel**
-- During a battle the bottom screen opens the Battle panel by itself. If you tap another tab to look something up, the footer (bottom left) turns gold and reads "Tap here: back to the battle"; tapping it returns to the Battle panel. Before, the Battle panel could only be reached again in the next battle.
-
-**Android app (beta)**
-- Native Android build of the same app (`android/`): SDL2 + mGBA, window-shaped layout (portrait stack, landscape side by side), on-screen buttons with a PAD chip (Auto / On / Off), game controllers mapped like the 3DS, ROM file picker, autosave when the app is left, launcher icon, signed release APK.
-- Dual-screen handhelds: the game goes to the second display and the companion UI fills the first.
-- Desktop (Windows) build of the same app (`desktop/`).
-- The app is now split into a shared core (`src/app.c`) and per-platform layers (`platform_3ds.c`, `desktop/platform_sdl.c`); the 3DS behaviour is unchanged.
 
 **Patcher**
 - Double-click `GoldenSun3DS-Patcher.exe` to open it (a small launcher; `Install.bat` still works).

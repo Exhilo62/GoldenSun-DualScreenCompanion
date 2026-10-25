@@ -26,4 +26,4 @@ Autosave: when the app leaves the foreground (home button, app switch, screen of
 - **Focus:** the window on the second display never takes input focus, so touching it does not pull the controller away from the game.
 - **Touch buttons**: a small `PAD` chip below the FF button cycles **Auto** (hidden while a controller is connected, shown again when it is unplugged), **On** and **Off**. The chip stays on screen, dimmed, when the buttons are hidden; the choice is saved in `padmode.txt` in the app folder. On a dual-screen handheld the buttons are always hidden.
 
-Status: tested on an Android 34 emulator (picker, layouts, touch, save on Home). Dual-screen output tested on an emulator with a simulated second display. Not yet tested: sound, real hardware.
+Status: tested on one dual-screen handheld and on an Android 34 emulator (picker, layouts, touch, saving, dual-screen output). Other devices are unknown.
