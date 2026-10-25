@@ -197,7 +197,10 @@ static void layout(void) {
 		if (dualScreen) {   // only the window's own canvas is placed here; the other one goes to the other display
 			float k = (float) W / 320 < (float) H / 240 ? (float) W / 320 : (float) H / 240;
 			SDL_Rect r = rc((W - 320 * k) / 2, (H - 240 * k) / 2, 320 * k, 240 * k);
-			if (swapScreens) topDst = r; else botDst = r;
+			if (swapScreens) {
+				topDst = r;
+				if (topFill) { int fx, fy, fw, fh; fillBox(W, H, &fx, &fy, &fw, &fh); topDst = (SDL_Rect) {fx, fy, fw, fh}; }   // the banner stretched to 16:9 like the game picture
+			} else botDst = r;
 		} else if (H >= W) {
 			float k = (float) W / 320 < (float) H / 480 ? (float) W / 320 : (float) H / 480;
 			float x0 = (W - 320 * k) / 2, y0 = (H - 480 * k) / 2;
@@ -645,6 +648,13 @@ static bool pickerLoop(GsGameId* out) {
 	SDL_SetTextureScaleMode(tTex, SDL_ScaleModeNearest);
 	SDL_SetTextureScaleMode(bTex, SDL_ScaleModeNearest);
 	pickerMode = true;
+	{   // the banner follows the Menu tab's "Top screen" setting (first byte of settings.bin; Fill when there is none yet)
+		char sp[128];
+		unsigned char b0 = TOP_FILL;
+		FILE* sf = fopen(gsGamePath(GS_GAME_1, "settings.bin", sp, sizeof(sp)), "rb");
+		if (sf) { if (fread(&b0, 1, 1, sf) != 1) b0 = TOP_FILL; fclose(sf); }
+		topFill = b0 == TOP_FILL;
+	}
 	char lastPath[128];
 	gsGamePath(GS_GAME_1, "lastgame.txt", lastPath, sizeof(lastPath));
 	int last = -1;
@@ -698,7 +708,7 @@ static bool pickerLoop(GsGameId* out) {
 			canvasToRows(pickBotCanvas, pickBotRows);
 			SDL_UpdateTexture(tTex, NULL, pickTopRows, GFX_W * 2);
 			SDL_UpdateTexture(bTex, NULL, pickBotRows, GFX_W * 2);
-			if (dualScreen) drawSurface(swapScreens ? pickBotRows : pickTopRows, GFX_W, GFX_H, GFX_W, false);   // the canvas that is not in this window
+			if (dualScreen) drawSurface(swapScreens ? pickBotRows : pickTopRows, GFX_W, GFX_H, GFX_W, !swapScreens && topFill);   // the canvas that is not in this window
 			dirty = false;
 			surfaceStale = false;
 		}

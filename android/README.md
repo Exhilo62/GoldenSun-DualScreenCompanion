@@ -9,6 +9,7 @@ Put the repo in a path without spaces, then run `android\build_apk.bat` (it read
 Output: `android/app/build/outputs/apk/debug/app-debug.apk`.
 
 ## Start-up screen
+(On a dual-screen device the banner is stretched to 16:9 like the game picture when "Top screen: Fill" is set, which is the default.)
 The same themed pick screen as the 3DS app (banner with the logo, a card per game, and **Add ROM file**): tap a card, or use the D-pad and A / Start on a controller. A game without a ROM is dimmed; tapping it (or **Add ROM file**) opens the system file picker. Back leaves the app from this screen only.
 
 ## ROMs

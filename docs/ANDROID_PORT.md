@@ -115,3 +115,7 @@ Controller mapping follows the 3DS (see `android/README.md`); `SDL_HINT_GAMECONT
 
 ## Status (Oct 25, later): way back to the Battle panel (all platforms)
 Shared UI change (`ui.c`), so it is on the 3DS build too: while a battle is on and another tab (or an overlay such as the log) is showing, the footer's left panel is highlighted with "Tap here: back to the battle" and a tap on it sets the tab back to the Battle panel. Checked in desktop screenshots from a battle state (tab tap shows the Party tab and the hint; footer tap returns); 3DS selftest 110/110. Not run on the console or in Azahar yet.
+
+## Status (Oct 25, v0.1.1 polish): launcher icon, pick-screen Fill
+- **Icon:** `tools/genandroidicon.ps1` now draws the artwork on the same navy gradient tile as the 3DS HOME icon (`tools/genicon.ps1`): legacy PNGs (Android 7 and older) plus an adaptive icon (Android 8+: navy gradient `ic_launcher_background.xml`, artwork in the safe zone).
+- **Pick screen Fill:** the banner reads the saved "Top screen" setting (first byte of `settings.bin`, Fill when absent) and is stretched with `fillBox()` like the game picture. Checked on the emulator in both screen arrangements (ZL / W swap).
