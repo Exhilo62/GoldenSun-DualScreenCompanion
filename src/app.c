@@ -477,6 +477,11 @@ int appRun(void) {
 		u64 t0 = plTicks();
 		PlInput in;
 		plPollInput(&in);
+		if (in.saveNow) {   // leaving the foreground: the process may be killed without notice, so everything is written now
+			if (ui.autoSave) writeState(core, autoPath);
+			if (bestDirty()) bestSave(bestPath);
+			if (!plTwoCore() && mapDirty()) mapSave(mapsPath);
+		}
 		gsReadState(&gs, memRead, core);
 		gs.bldcnt = ((struct GBA*) core->board)->memory.io[0x50 >> 1];
 		bestObserve(&gs);

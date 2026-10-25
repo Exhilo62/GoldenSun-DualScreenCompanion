@@ -9,11 +9,12 @@ Put the repo in a path without spaces, then run `android\build_apk.bat` (it read
 Output: `android/app/build/outputs/apk/debug/app-debug.apk`.
 
 ## ROMs
-You supply your own ROMs. For now copy `golden_sun.gba` (and optionally `lost_age.gba`) into the app's folder on shared storage: `Android/data/com.exhilo.goldensundualscreen/files/`. A file picker is the next step.
+You supply your own ROMs. At start-up the app shows a menu: **Play** (for each ROM it has) and **Add ROM file**, which opens Android's file picker. The chosen file's header is checked (Golden Sun = AGS*, The Lost Age = AGF*) and it is copied into the app's folder (`Android/data/com.exhilo.goldensundualscreen/files/` as `golden_sun.gba` / `lost_age.gba`); it never leaves the device. Copying the files there by hand works too.
+Autosave: when the app leaves the foreground (home button, app switch, screen off) the autosave state, bestiary and map are written first, if Autosave is On.
 
 ## Screens
 - Phone / tablet: one display. Portrait stacks the GBA picture over the companion UI with on-screen buttons below; landscape puts them side by side with buttons on both sides.
 - Dual-screen handhelds (Retroid Pocket Duo and similar): the screen the app is started on is the touch screen with the companion UI (no on-screen buttons); the other display shows the GBA picture. To swap them, start the app on the other screen.
 - Game controllers work (east / south button = A / B, shoulders = L / R, right trigger = fast forward).
 
-Status: builds and packages; not yet run on a device or emulator.
+Status: builds and packages; not yet run on a device or emulator (ROM picker, dual-screen output and save-on-background are untested).

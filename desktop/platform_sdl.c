@@ -278,7 +278,25 @@ static void openPads(void) {
 	}
 }
 
+// Leaving the foreground (Android): the lifecycle watcher asks for a save and waits until the loop has delivered the request (1 -> 2) and come back for
+// the next poll (2 -> 3), which means the app finished writing. gameRunning stops it from waiting before the loop exists.
+static volatile int saveReq;
+static volatile bool gameRunning;
+static int SDLCALL lifecycleWatch(void* ud, SDL_Event* e) {
+	(void) ud;
+	if (e->type == SDL_APP_WILLENTERBACKGROUND && gameRunning) {
+		saveReq = 1;
+		for (int i = 0; i < 300 && saveReq != 3; ++i) SDL_Delay(5);
+		saveReq = 0;
+	}
+	return 0;
+}
+
 void plPollInput(PlInput* in) {
+	gameRunning = true;
+	in->saveNow = false;
+	if (saveReq == 2) saveReq = 3;
+	else if (saveReq == 1) { in->saveNow = true; saveReq = 2; }
 	SDL_Event e;
 	while (SDL_PollEvent(&e)) {
 		if (e.type == SDL_QUIT) quitRequested = true;
@@ -442,6 +460,58 @@ void plFatal(const char* msg) {
 	SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Golden Sun - Dual Screen Companion", msg, win);
 }
 
+#ifdef __ANDROID__
+// Start-up menu: Play (each ROM that is present) and Add ROM, which opens the system file picker (MainActivity.pickRom). Back = quit.
+static int jniStaticInt(const char* name) {
+	JNIEnv* env = SDL_AndroidGetJNIEnv();
+	jobject act = SDL_AndroidGetActivity();
+	jclass cls = (*env)->GetObjectClass(env, act);
+	jmethodID m = (*env)->GetStaticMethodID(env, cls, name, "()I");
+	int v = m ? (*env)->CallStaticIntMethod(env, cls, m) : 4;
+	(*env)->DeleteLocalRef(env, cls);
+	(*env)->DeleteLocalRef(env, act);
+	return v;
+}
+
+static void jniPickRom(void) {
+	JNIEnv* env = SDL_AndroidGetJNIEnv();
+	jobject act = SDL_AndroidGetActivity();
+	jclass cls = (*env)->GetObjectClass(env, act);
+	jmethodID m = (*env)->GetStaticMethodID(env, cls, "pickRom", "()V");
+	if (m) (*env)->CallStaticVoidMethod(env, cls, m);
+	(*env)->DeleteLocalRef(env, cls);
+	(*env)->DeleteLocalRef(env, act);
+}
+
+static void note(const char* text) { SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Golden Sun - Dual Screen Companion", text, win); }
+
+bool plChooseGame(GsGameId* out) {
+	const char* g = getenv("GS_GAME");
+	for (;;) {
+		const bool have[2] = {gsGameRomExists(GS_GAME_1), gsGameRomExists(GS_GAME_2)};
+		if (g && (atoi(g) == 1 || atoi(g) == 2) && have[atoi(g) - 1]) { *out = (GsGameId) (atoi(g) - 1); return true; }
+		SDL_MessageBoxButtonData b[3];
+		int nb = 0, game[3];
+		for (int i = 0; i < 2; ++i) if (have[i]) { b[nb] = (SDL_MessageBoxButtonData) {0, nb, i ? "Play The Lost Age" : "Play Golden Sun"}; game[nb++] = i; }
+		b[nb] = (SDL_MessageBoxButtonData) {SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, nb, "Add ROM file"};
+		game[nb++] = -1;
+		const SDL_MessageBoxData mb = {SDL_MESSAGEBOX_INFORMATION, win, "Golden Sun - Dual Screen Companion",
+			have[0] || have[1] ? "Pick a game, or add a ROM. Your ROMs stay on this device (back button: quit)."
+			                   : "No ROM yet. Add your own Golden Sun or Golden Sun: The Lost Age ROM (.gba). It is copied into this app and never leaves your device.",
+			nb, b, NULL};
+		int id = -1;
+		if (SDL_ShowMessageBox(&mb, &id) != 0) return false;
+		if (id < 0) return false;   // dismissed with back
+		if (game[id] >= 0) { *out = (GsGameId) game[id]; return true; }
+		jniPickRom();
+		while (jniStaticInt("pickState") == 1) { SDL_PumpEvents(); SDL_Delay(100); }
+		int st = jniStaticInt("pickState");
+		if (st == 2) note("ROM added.");
+		else if (st == 3) note("That file is not Golden Sun or Golden Sun: The Lost Age (checked the cartridge code in the ROM header).");
+		else if (st == 4) note("Could not read that file.");
+	}
+}
+#else
 bool plChooseGame(GsGameId* out) {
 	const bool have[2] = {gsGameRomExists(GS_GAME_1), gsGameRomExists(GS_GAME_2)};
 	if (!have[0] && !have[1]) {
@@ -456,6 +526,7 @@ bool plChooseGame(GsGameId* out) {
 	*out = (GsGameId) pick;
 	return true;
 }
+#endif
 
 bool plInit(void) {
 	SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");   // fingers are read directly (several at once: buttons plus the touch screen)
@@ -482,6 +553,9 @@ bool plInit(void) {
 	SDL_SetTextureScaleMode(botTex, SDL_ScaleModeNearest);
 	openPads();
 	layout();
+#ifdef __ANDROID__
+	SDL_AddEventWatch(lifecycleWatch, NULL);
+#endif
 	gsGameInitRomfs();
 	gsGameEnsureDir(GS_GAME_1);
 	return true;

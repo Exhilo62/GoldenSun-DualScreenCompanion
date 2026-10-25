@@ -15,6 +15,7 @@ typedef struct {
 	bool touch;      // the touch screen is pressed
 	int tx, ty;      // touch position on the 320x240 bottom screen
 	bool turbo;      // the fast-forward button is held
+	bool saveNow;    // the app is about to leave the foreground (Android): write the autosave now; the platform waits until the next poll
 } PlInput;
 
 // Clock. Ticks are whatever the platform counts in; these constants say how many make a millisecond and how the loop's timing figures are scaled.
