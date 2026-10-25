@@ -68,3 +68,8 @@ The desktop spike runs: `desktop/main_sdl.c` is about 150 lines of SDL2 and show
 - `platform_3ds.c`: everything libctru: ndsp audio, the top-screen blit, the worker thread on core 2, vblank pacing, the game picker. `main()` is just `plInit()` then `appRun()`.
 The 3DS build is unchanged in behaviour: `selftest.py` (110 checks) passes and Azahar smoke runs (ROM map, Lost Age cast flow, menu at 60 FPS) match before the split. Not re-run: a console perf check.
 Next: `platform_sdl.c` implementing `platform.h` (mGBA built with `COLOR_16_BIT` + `COLOR_5_6_5` like the 3DS), so the desktop build runs `appRun()` and the touch actions work.
+
+## Status (Oct 24): desktop build on the shared core
+`desktop/platform_sdl.c` implements `platform.h` (SDL2 window, keyboard / mouse-as-touch, audio queue, inline jobs, pacing to 59.73 Hz) and the desktop build now runs `appRun()`, replacing the old spike loop. Two small desktop replacements stand in for the 3DS-only files: `gs_game_desktop.c` (paths under `gsdata/`, ROMs from there or `GS_ROM1/2`) and `bgwrite_sync.c` (writes on the calling thread). mGBA is built with `COLOR_16_BIT` + `COLOR_5_6_5`, the same RGB565 video as the 3DS.
+Checked on Windows with real ROMs: Golden Sun autosave loads in Vale and the Map tab draws the ROM map with the player marker; Lost Age Psynergy tap opens "Use Cure on whom?" through the game's own menus (the touch-action state machine works off the 3DS).
+Next: Android shell (work package 3). That needs the Android SDK + NDK (several GB) and a Gradle project built around the same `platform_sdl.c`.
