@@ -17,6 +17,7 @@
 #include "../src/app.h"
 #include "../src/gfx.h"
 #include "../src/gs_game.h"
+#include "../src/pickscreen.h"
 #include "../src/platform.h"
 #include "../src/ui.h"
 
@@ -27,6 +28,11 @@
 #endif
 
 #define AUDIO_SAMPLES 512
+#ifdef __ANDROID__
+#define FULLSCREEN_FLAG SDL_WINDOW_FULLSCREEN   // immersive: no status or navigation bar
+#else
+#define FULLSCREEN_FLAG 0
+#endif
 
 static void quietLog(struct mLogger* l, int category, enum mLogLevel level, const char* format, va_list args) { (void) l; (void) category; (void) level; (void) format; (void) args; }
 static struct mLogger quietLogger = {quietLog};
@@ -51,7 +57,20 @@ static bool dualScreen;
 // Which display shows what on a dual-screen device: normally this window (where the app was started) is the touch screen and the other display shows the
 // GBA picture. Handhelds differ in which physical screen the app opens on, so the screens can be swapped (ZL on a controller, or the W key): then this
 // window shows the picture and the other display shows the companion UI, and touches on it are sent back here by MainActivity.
+// "Top screen: Fill": the 3:2 picture is stretched to 16:9. On a display wider than 16:9 (up to 21:9) it fills the whole display; on a taller one (4:3,
+// portrait) it is a 16:9 box across the width; on a still wider one it is a 21:9 box.
+static void fillBox(int W, int H, int* x, int* y, int* w, int* h) {
+	float ta = (float) W / (float) (H ? H : 1);
+	if (ta < 16.0f / 9.0f) ta = 16.0f / 9.0f;
+	if (ta > 21.0f / 9.0f) ta = 21.0f / 9.0f;
+	*w = W; *h = (int) (W / ta);
+	if (*h > H) { *h = H; *w = (int) (H * ta); }
+	*x = (W - *w) / 2; *y = (H - *h) / 2;
+}
+
 static bool swapScreens;
+static bool topFill;      // the Menu tab's "Top screen: Fill": stretch the picture over its whole area instead of fitting it
+static bool pickerMode;   // the game pick screen is showing (layout puts its two canvases where the game picture and the UI normally go)
 static volatile bool surfaceStale;           // the other display must be redrawn even if the UI did not change (new surface, swap)
 static volatile bool extDown;                // a finger is down on the other display (swapped mode), in 320x240 UI coordinates
 static volatile int extTx, extTy;
@@ -83,7 +102,7 @@ JNIEXPORT void JNICALL Java_com_exhilo_goldensundualscreen_MainActivity_nativeSu
 }
 
 // Nearest-neighbour fit of an RGB565 image (sw x sh, row stride in pixels) onto the other display, black bars where the shapes differ.
-static void drawSurface(const uint16_t* src, int sw, int sh, int stride) {
+static void drawSurface(const uint16_t* src, int sw, int sh, int stride, bool stretch) {
 	if (!topLock) return;
 	SDL_LockMutex(topLock);
 	if (topWin) {
@@ -94,6 +113,7 @@ static void drawSurface(const uint16_t* src, int sw, int sh, int stride) {
 				extW = b.width; extH = b.height;
 				float sc = (float) b.width / sw < (float) b.height / sh ? (float) b.width / sw : (float) b.height / sh;
 				int dw = (int) (sw * sc), dh = (int) (sh * sc), x0 = (b.width - dw) / 2, y0 = (b.height - dh) / 2;
+				if (stretch) fillBox(b.width, b.height, &x0, &y0, &dw, &dh);   // "Top screen: Fill"
 				static int xmap[4096];
 				static int mapW = -1, mapS = -1;
 				if (dw > 4096) dw = 4096;
@@ -112,7 +132,7 @@ static void drawSurface(const uint16_t* src, int sw, int sh, int stride) {
 	SDL_UnlockMutex(topLock);
 }
 #else
-static void drawSurface(const uint16_t* src, int sw, int sh, int stride) { (void) src; (void) sw; (void) sh; (void) stride; }
+static void drawSurface(const uint16_t* src, int sw, int sh, int stride, bool stretch) { (void) src; (void) sw; (void) sh; (void) stride; (void) stretch; }
 #endif
 
 uint64_t plTicks(void) { return SDL_GetPerformanceCounter() * 1000000ull / SDL_GetPerformanceFrequency(); }   // microseconds
@@ -171,9 +191,30 @@ static void layout(void) {
 	SDL_GetRendererOutputSize(ren, &outW, &outH);
 	const int W = outW, H = outH;
 	topDst = (SDL_Rect) {0, 0, 0, 0};
+	if (pickerMode) {   // banner (top canvas) and cards (bottom canvas), both 4:3
+		botDst = (SDL_Rect) {0, 0, 0, 0};
+		for (int i = 0; i < CT_COUNT; ++i) ctl[i].r = (SDL_Rect) {-1, -1, 0, 0};
+		if (dualScreen) {   // only the window's own canvas is placed here; the other one goes to the other display
+			float k = (float) W / 320 < (float) H / 240 ? (float) W / 320 : (float) H / 240;
+			SDL_Rect r = rc((W - 320 * k) / 2, (H - 240 * k) / 2, 320 * k, 240 * k);
+			if (swapScreens) topDst = r; else botDst = r;
+		} else if (H >= W) {
+			float k = (float) W / 320 < (float) H / 480 ? (float) W / 320 : (float) H / 480;
+			float x0 = (W - 320 * k) / 2, y0 = (H - 480 * k) / 2;
+			topDst = rc(x0, y0, 320 * k, 240 * k);
+			botDst = rc(x0, y0 + 240 * k, 320 * k, 240 * k);
+		} else {
+			float a = (float) W / 640 < (float) H / 240 ? (float) W / 640 : (float) H / 240;
+			float x0 = (W - 640 * a) / 2, y0 = (H - 240 * a) / 2;
+			topDst = rc(x0, y0, 320 * a, 240 * a);
+			botDst = rc(x0 + 320 * a, y0, 320 * a, 240 * a);
+		}
+		return;
+	}
 	if (dualScreen && swapScreens) {   // swapped: this window shows the picture alone, the other display has the UI
 		float k = (float) W / 240 < (float) H / 160 ? (float) W / 240 : (float) H / 160;
 		topDst = rc((W - 240 * k) / 2, (H - 160 * k) / 2, 240 * k, 160 * k);
+		if (topFill) { int fx, fy, fw, fh; fillBox(W, H, &fx, &fy, &fw, &fh); topDst = (SDL_Rect) {fx, fy, fw, fh}; }
 		botDst = (SDL_Rect) {0, 0, 0, 0};
 		for (int i = 0; i < CT_COUNT; ++i) ctl[i].r = (SDL_Rect) {-1, -1, 0, 0};
 	} else if (dualScreen) {   // this display is the touch screen alone: the UI as large as it fits, no on-screen buttons (the device has its own)
@@ -181,11 +222,13 @@ static void layout(void) {
 		botDst = rc((W - 320 * k) / 2, (H - 240 * k) / 2, 320 * k, 240 * k);
 		for (int i = 0; i < CT_COUNT; ++i) ctl[i].r = (SDL_Rect) {-1, -1, 0, 0};
 	} else if (H >= W) {   // portrait
+		float topH = topFill ? 180 : 160;   // Fill: the picture widened to 16:9 over the UI's full width
 		float k = (float) W / 320;
-		if (k * 400 > H * 0.62f) k = H * 0.62f / 400;
+		if (k * (topH + 240) > H * 0.62f) k = H * 0.62f / (topH + 240);
 		int sw = (int) (320 * k), x0 = (W - sw) / 2;
-		topDst = rc(x0 + 40 * k, 0, 240 * k, 160 * k);
-		botDst = rc(x0, 160 * k, sw, 240 * k);
+		if (topFill) topDst = rc(x0, 0, 320 * k, 180 * k);
+		else topDst = rc(x0 + 40 * k, 0, 240 * k, 160 * k);
+		botDst = rc(x0, topH * k, sw, 240 * k);
 		int cy = botDst.y + botDst.h, ch = H - cy;
 		float u = ch / 6.0f < W / 8.0f ? ch / 6.0f : W / 8.0f;   // one button unit
 		if (u < 8) u = 8;
@@ -352,6 +395,7 @@ static const char* padModePath(void) {
 }
 
 static bool swapPressed;
+static bool backPressed;
 static float tapX, tapY;
 static int tapHold;
 
@@ -361,6 +405,7 @@ void plPollInput(PlInput* in) {
 	while (SDL_PollEvent(&e)) {
 		if (e.type == SDL_QUIT) quitRequested = true;
 		if (e.type == SDL_FINGERDOWN) { tapX = e.tfinger.x; tapY = e.tfinger.y; tapHold = 4; }   // a very quick tap must still be seen for a few frames
+		if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_AC_BACK) backPressed = true;   // only the pick screen acts on Back; in the game it is ignored
 		if (e.type == SDL_KEYDOWN && !e.key.repeat && e.key.keysym.scancode == SDL_SCANCODE_W) swapPressed = true;   // W: swap the two screens (an event, so a very short key press still counts)
 		if (e.type == SDL_CONTROLLERDEVICEADDED || e.type == SDL_CONTROLLERDEVICEREMOVED) openPads();
 	}
@@ -502,7 +547,7 @@ bool plJobSlotFree(void) { return true; }
 
 static void present(Job* j) {
 	if (!dualScreen || swapScreens) SDL_UpdateTexture(topTex, NULL, j->top, 256 * 2);
-	else drawSurface(j->top, 240, 160, 256);
+	else drawSurface(j->top, 240, 160, 256, topFill);
 	bool uiChanged = botDirty;
 	if (botDirty) {
 		for (int x = 0; x < GFX_W; ++x)
@@ -510,7 +555,7 @@ static void present(Job* j) {
 		if (!(dualScreen && swapScreens)) SDL_UpdateTexture(botTex, NULL, rows, GFX_W * 2);
 		botDirty = false;
 	}
-	if (dualScreen && swapScreens && (uiChanged || surfaceStale)) { drawSurface(rows, GFX_W, GFX_H, GFX_W); surfaceStale = false; }
+	if (dualScreen && swapScreens && (uiChanged || surfaceStale)) { drawSurface(rows, GFX_W, GFX_H, GFX_W, false); surfaceStale = false; }
 	SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
 	SDL_RenderClear(ren);
 	SDL_Rect topSrc = {0, 0, 240, 160};
@@ -528,6 +573,7 @@ static void present(Job* j) {
 }
 
 void plJobSubmit(Job* j) {
+	topFill = j->ui.topScale == TOP_FILL;
 	if (appProcessJob(j, privBot)) botDirty = true;
 	present(j);
 }
@@ -561,8 +607,9 @@ void plFatal(const char* msg) {
 	SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Golden Sun - Dual Screen Companion", msg, win);
 }
 
+// ---- game pick screen ---------------------------------------------------------------------------------------------------
+// The 3DS launcher's look (src/pickscreen.c): banner and game cards, plus "Add ROM file" (Android: the system file picker, see MainActivity.pickRom).
 #ifdef __ANDROID__
-// Start-up menu: Play (each ROM that is present) and Add ROM, which opens the system file picker (MainActivity.pickRom). Back = quit.
 static int jniStaticInt(const char* name) {
 	JNIEnv* env = SDL_AndroidGetJNIEnv();
 	jobject act = SDL_AndroidGetActivity();
@@ -583,53 +630,121 @@ static void jniPickRom(void) {
 	(*env)->DeleteLocalRef(env, cls);
 	(*env)->DeleteLocalRef(env, act);
 }
-
-static void note(const char* text) { SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Golden Sun - Dual Screen Companion", text, win); }
-
-bool plChooseGame(GsGameId* out) {
-	const char* g = getenv("GS_GAME");
-	for (;;) {
-		const bool have[2] = {gsGameRomExists(GS_GAME_1), gsGameRomExists(GS_GAME_2)};
-		if (g && (atoi(g) == 1 || atoi(g) == 2) && have[atoi(g) - 1]) { *out = (GsGameId) (atoi(g) - 1); return true; }
-		SDL_MessageBoxButtonData b[3];
-		int nb = 0, game[3];
-		for (int i = 0; i < 2; ++i) if (have[i]) { b[nb] = (SDL_MessageBoxButtonData) {0, nb, i ? "Play The Lost Age" : "Play Golden Sun"}; game[nb++] = i; }
-		b[nb] = (SDL_MessageBoxButtonData) {SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, nb, "Add ROM file"};
-		game[nb++] = -1;
-		const SDL_MessageBoxData mb = {SDL_MESSAGEBOX_INFORMATION, win, "Golden Sun - Dual Screen Companion",
-			have[0] || have[1] ? "Pick a game, or add a ROM. Your ROMs stay on this device (back button: quit)."
-			                   : "No ROM yet. Add your own Golden Sun or Golden Sun: The Lost Age ROM (.gba). It is copied into this app and never leaves your device.",
-			nb, b, NULL};
-		int id = -1;
-		if (SDL_ShowMessageBox(&mb, &id) != 0) return false;
-		if (id < 0) return false;   // dismissed with back
-		if (game[id] >= 0) { *out = (GsGameId) game[id]; return true; }
-		jniPickRom();
-		while (jniStaticInt("pickState") == 1) { SDL_PumpEvents(); SDL_Delay(100); }
-		int st = jniStaticInt("pickState");
-		if (st == 2) note("ROM added.");
-		else if (st == 3) note("That file is not Golden Sun or Golden Sun: The Lost Age (checked the cartridge code in the ROM header).");
-		else if (st == 4) note("Could not read that file.");
-	}
-}
-#else
-bool plChooseGame(GsGameId* out) {
-	const bool have[2] = {gsGameRomExists(GS_GAME_1), gsGameRomExists(GS_GAME_2)};
-	if (!have[0] && !have[1]) {
-		char a[128], b[128], msg[300];
-		snprintf(msg, sizeof(msg), "No ROM found. Put your ROM at:\n%s\n(Lost Age, optional:\n%s)", gsGameRomPath(GS_GAME_1, a, sizeof(a)), gsGameRomPath(GS_GAME_2, b, sizeof(b)));
-		plFatal(msg);
-		return false;
-	}
-	int pick = have[0] ? 0 : 1;
-	const char* g = getenv("GS_GAME");
-	if (g && (atoi(g) == 1 || atoi(g) == 2) && have[atoi(g) - 1]) pick = atoi(g) - 1;
-	*out = (GsGameId) pick;
-	return true;
-}
 #endif
 
+static uint16_t pickTopCanvas[GFX_W * GFX_H], pickBotCanvas[GFX_W * GFX_H], pickTopRows[GFX_W * GFX_H], pickBotRows[GFX_W * GFX_H];
+
+static void canvasToRows(const uint16_t* canvas, uint16_t* out) {
+	for (int x = 0; x < GFX_W; ++x)
+		for (int y = 0; y < GFX_H; ++y) out[y * GFX_W + x] = canvas[x * GFX_H + (GFX_H - 1 - y)];
+}
+
+static bool pickerLoop(GsGameId* out) {
+	SDL_Texture* tTex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_RGB565, SDL_TEXTUREACCESS_STREAMING, GFX_W, GFX_H);
+	SDL_Texture* bTex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_RGB565, SDL_TEXTUREACCESS_STREAMING, GFX_W, GFX_H);
+	SDL_SetTextureScaleMode(tTex, SDL_ScaleModeNearest);
+	SDL_SetTextureScaleMode(bTex, SDL_ScaleModeNearest);
+	pickerMode = true;
+	char lastPath[128];
+	gsGamePath(GS_GAME_1, "lastgame.txt", lastPath, sizeof(lastPath));
+	int last = -1;
+	{ FILE* f = fopen(lastPath, "r"); int v; if (f) { if (fscanf(f, "%d", &v) == 1 && v >= 0 && v < GS_GAME_COUNT) last = v; fclose(f); } }
+	bool have[2] = {gsGameRomExists(GS_GAME_1), gsGameRomExists(GS_GAME_2)};
+	int sel = last >= 0 && have[last] ? last : have[0] ? 0 : have[1] ? 1 : PICK_ADD;
+	char status[96] = "";
+	bool adding = false, dirty = true, touchWas = false, upWas = false, downWas = false, okWas = false;
+	int result = 0;   // 0 running, 1 chosen, -1 quit
+	const GsGameInfo* gi[2] = {gsGameInfo(GS_GAME_1), gsGameInfo(GS_GAME_2)};
+	while (result == 0) {
+		PlInput in;
+		plPollInput(&in);
+		if (quitRequested || backPressed) { result = -1; break; }
+		if (adding) {
+#ifdef __ANDROID__
+			int st = jniStaticInt("pickState");
+			if (st != 1) {
+				adding = false;
+				have[0] = gsGameRomExists(GS_GAME_1); have[1] = gsGameRomExists(GS_GAME_2);
+				snprintf(status, sizeof(status), "%s", st == 2 ? "ROM added" : st == 3 ? "Not a Golden Sun ROM (header check)" : st == 4 ? "Could not read that file" : "");
+				dirty = true;
+			}
+#endif
+		} else {
+			bool up = (in.keys & (1u << GBA_KEY_UP)) != 0, down = (in.keys & (1u << GBA_KEY_DOWN)) != 0, ok = (in.keys & ((1u << GBA_KEY_A) | (1u << GBA_KEY_START))) != 0;
+			int act = PICK_NONE;
+			if (up && !upWas) { sel = (sel + PICK_COUNT - 1) % PICK_COUNT; dirty = true; status[0] = 0; }
+			if (down && !downWas) { sel = (sel + 1) % PICK_COUNT; dirty = true; status[0] = 0; }
+			if (ok && !okWas) act = sel;
+			if (in.touch && !touchWas) { int h = pickHit(in.tx, in.ty); if (h != PICK_NONE) { sel = h; dirty = true; act = h; } }
+			upWas = up; downWas = down; okWas = ok; touchWas = in.touch;
+			if (act != PICK_NONE) {
+				if (act < 2 && have[act]) { *out = (GsGameId) act; result = 1; }
+				else {
+#ifdef __ANDROID__
+					status[0] = 0;
+					jniPickRom();
+					adding = true;
+#else
+					snprintf(status, sizeof(status), "%s", "Copy the ROM into the data folder (see README)");
+#endif
+					dirty = true;
+				}
+			}
+		}
+		if (dirty || surfaceStale) {
+			pickDrawTop(pickTopCanvas, status[0] ? status : sel < 2 ? gi[sel]->name : "Add a ROM file");
+			pickDrawBottom(pickBotCanvas, sel, last, have);
+			canvasToRows(pickTopCanvas, pickTopRows);
+			canvasToRows(pickBotCanvas, pickBotRows);
+			SDL_UpdateTexture(tTex, NULL, pickTopRows, GFX_W * 2);
+			SDL_UpdateTexture(bTex, NULL, pickBotRows, GFX_W * 2);
+			if (dualScreen) drawSurface(swapScreens ? pickBotRows : pickTopRows, GFX_W, GFX_H, GFX_W, false);   // the canvas that is not in this window
+			dirty = false;
+			surfaceStale = false;
+		}
+		layout();
+		SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
+		SDL_RenderClear(ren);
+		if (topDst.w > 0) SDL_RenderCopy(ren, tTex, NULL, &topDst);
+		if (botDst.w > 0) SDL_RenderCopy(ren, bTex, NULL, &botDst);
+		if (shotPath && ++frameNo >= shotFrames) {
+			SDL_Surface* sf = SDL_CreateRGBSurfaceWithFormat(0, outW, outH, 32, SDL_PIXELFORMAT_ARGB8888);
+			SDL_RenderReadPixels(ren, NULL, SDL_PIXELFORMAT_ARGB8888, sf->pixels, sf->pitch);
+			SDL_SaveBMP(sf, shotPath);
+			SDL_FreeSurface(sf);
+			quitRequested = true;
+		}
+		SDL_RenderPresent(ren);
+		SDL_Delay(16);
+	}
+	pickerMode = false;
+	SDL_DestroyTexture(tTex);
+	SDL_DestroyTexture(bTex);
+	if (result == 1) { FILE* f = fopen(lastPath, "w"); if (f) { fprintf(f, "%d", (int) *out); fclose(f); } }
+	return result == 1;
+}
+
+bool plChooseGame(GsGameId* out) {
+	const char* g = getenv("GS_GAME");
+	const bool have[2] = {gsGameRomExists(GS_GAME_1), gsGameRomExists(GS_GAME_2)};
+	if (g && (atoi(g) == 1 || atoi(g) == 2) && have[atoi(g) - 1]) { *out = (GsGameId) (atoi(g) - 1); return true; }
+#ifndef __ANDROID__
+	if (!getenv("GS_PICKER")) {   // desktop: straight into the game unless asked for the pick screen
+		if (!have[0] && !have[1]) {
+			char a[128], b[128], msg[300];
+			snprintf(msg, sizeof(msg), "No ROM found. Put your ROM at:%c%s%c(Lost Age, optional:%c%s)", 10, gsGameRomPath(GS_GAME_1, a, sizeof(a)), 10, 10, gsGameRomPath(GS_GAME_2, b, sizeof(b)));
+			plFatal(msg);
+			return false;
+		}
+		*out = have[0] ? GS_GAME_1 : GS_GAME_2;
+		return true;
+	}
+#endif
+	return pickerLoop(out);
+}
+
 bool plInit(void) {
+	SDL_SetHint(SDL_HINT_ANDROID_TRAP_BACK_BUTTON, "1");   // Back must not close the app in the middle of a game
 	SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");   // fingers are read directly (several at once: buttons plus the touch screen)
 	SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "0");
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return false; }
@@ -645,7 +760,7 @@ bool plInit(void) {
 	shotFrames = getenv("GS_FRAMES") ? atoi(getenv("GS_FRAMES")) : 120;
 	int ww = 640, wh = 800;
 	if (getenv("GS_SIZE")) sscanf(getenv("GS_SIZE"), "%dx%d", &ww, &wh);
-	win = SDL_CreateWindow("Golden Sun - Dual Screen Companion", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, ww, wh, SDL_WINDOW_RESIZABLE | (shotPath ? SDL_WINDOW_HIDDEN : 0));
+	win = SDL_CreateWindow("Golden Sun - Dual Screen Companion", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, ww, wh, SDL_WINDOW_RESIZABLE | FULLSCREEN_FLAG | (shotPath ? SDL_WINDOW_HIDDEN : 0));
 	ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);   // no vsync: plPace holds the 59.73 Hz
 	if (!win || !ren) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return false; }
 	topTex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_RGB565, SDL_TEXTUREACCESS_STREAMING, 256, 160);

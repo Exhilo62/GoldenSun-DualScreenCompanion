@@ -25,7 +25,7 @@ add_subdirectory(${ROOT}/third_party/mgba mgba EXCLUDE_FROM_ALL)
 
 add_library(main SHARED
 	${ROOT}/desktop/platform_sdl.c ${ROOT}/desktop/gs_game_desktop.c ${ROOT}/desktop/bgwrite_sync.c
-	${ROOT}/src/app.c ${ROOT}/src/gs_state.c ${ROOT}/src/ui.c ${ROOT}/src/gfx.c ${ROOT}/src/font_data.c ${ROOT}/src/art.c ${ROOT}/src/art_data.c
+	${ROOT}/src/app.c ${ROOT}/src/pickscreen.c ${ROOT}/src/gs_state.c ${ROOT}/src/ui.c ${ROOT}/src/gfx.c ${ROOT}/src/font_data.c ${ROOT}/src/art.c ${ROOT}/src/art_data.c
 	${ROOT}/src/logo_data.c ${ROOT}/src/icon_data.c ${ROOT}/src/mapicon_data.c ${ROOT}/src/mapview.c ${ROOT}/src/menunav.c ${ROOT}/src/gs_areas.c
 	${ROOT}/src/gs_items.c ${ROOT}/src/gs_abilities.c ${ROOT}/src/bestiary.c ${ROOT}/src/gs_djinn.c ${ROOT}/src/dialoglog.c ${ROOT}/src/gs_field.c
 	${ROOT}/src/gs_classes.c ${ROOT}/src/gs_itemdesc.c ${ROOT}/src/mapdecode.c)

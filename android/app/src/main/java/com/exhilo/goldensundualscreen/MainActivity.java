@@ -12,6 +12,7 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
+import android.view.WindowManager;
 
 import org.libsdl.app.SDLActivity;
 
@@ -91,6 +92,9 @@ public class MainActivity extends SDLActivity {
             @Override
             protected void onCreate(Bundle b) {
                 super.onCreate(b);
+                // This window must never take input focus: Android sends controller and key events to the focused window of the most recently touched
+                // display, so touching the other screen would otherwise pull the buttons away from the game. Touches still arrive.
+                getWindow().addFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL);
                 SurfaceView view = new SurfaceView(getContext());
                 view.getHolder().addCallback(new SurfaceHolder.Callback() {
                     @Override public void surfaceCreated(SurfaceHolder h) { nativeSetTopSurface(h.getSurface()); }
@@ -107,6 +111,8 @@ public class MainActivity extends SDLActivity {
                         return true;
                     }
                 });
+                view.setFocusable(false);
+                view.setFocusableInTouchMode(false);
                 setContentView(view);
             }
         };
