@@ -189,6 +189,10 @@ def main():
         out = run_env({'MD_GAME': '2'}, 'mapdecode_test.exe', ta, -1, 'x')
         check('Lost Age maps decode', re.search(r'32[34] of 325 ok', out) is not None, out[-120:])
 
+    print('== battle command bar with fewer icons')
+    if os.path.exists(os.path.join(B, 'bar4.state')):   # a 4-icon bar (Summon and one more hidden), cursor on the third icon: that is Item, not Djinn
+        out = run('stateprobe.exe', os.path.join(B, 'gs.gba'), '-', os.path.join(B, 'bar4.state'))
+        check('4-icon bar: third icon is Item', re.search(r'phase=1 .*cmd=4 ', out) is not None, out[-200:])
     print('== UI self-tests')
     out = run('ui_preview.exe', os.path.join(B, 'far.bin'), os.path.join(B, 'uit'))
     n = 0

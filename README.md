@@ -38,7 +38,7 @@ This is built for the New 3DS XL; support for other devices (a desktop build, th
 These start **Off** on a fresh install; turn on the ones you want.
 - **Menus below:** when you open one of the game's own menus (items, Psynergy, ...) it is moved to the bottom screen as touch buttons, and the top screen keeps showing the field.
 - **Mute if slow:** silences the sound whenever the game runs under about 54 fps (a slow device or emulator), instead of playing slow, choppy audio.
-- **Autosave** (on by default), **Top screen** (1X or Fill), **Save slots**, **Rewind 5s**, **Message log**, **Bestiary** and **Clear map** are the other entries.
+- **Autosave** (on by default), **Top screen** (1X or Fill), **Save slots**, **Rewind 5s**, **Message log** and **Bestiary** are the other entries.
 
 ## What it does
 - **Bottom screen tabs**: Party (tap a member for the character screen), Psynergy, Djinn, Map, Items, Menu, plus an automatic Battle panel with enemy info and turn order.

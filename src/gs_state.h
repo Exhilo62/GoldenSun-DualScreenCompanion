@@ -60,7 +60,8 @@ typedef struct {
 	GsMember party[GS_PARTY_MAX];
 	int battleSel, battleAct;  // battle only: hero choosing / last acting (0..3) or -1
 	int battleDepth;           // battle: raw menu depth byte, -1 when unknown (it blips to 0 for one frame about every 24 frames on the command bar)
-	bool battleNoSummon;       // battle: the hero bar has no Summon icon (five commands)
+	bool battleNoSummon;       // battle: the hero bar has no Summon icon
+	uint8_t battleHidden;      // battle: bit i set = app command i (0 Attack, 1 Psynergy, 2 Djinn, 3 Summon, 4 Item, 5 Defend) is not on the game's hero bar
 	bool battleTop;            // battle: the round menu (Fight / Flee / Status, battleCmd 0..2) is up instead of a hero's command bar
 	int battleCmd;             // battle: highlighted command 0..5 (Attack, Psynergy, Djinn, Summon, Item, Defend) or -1
 	GsBattlePhase battlePhase; // battle: command bar / ability list / choosing a target (NONE while it is not the party's input)

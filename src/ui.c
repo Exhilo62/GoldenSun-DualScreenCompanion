@@ -71,8 +71,8 @@ static int logTotalHeight(void);
 
 // Menu tab buttons: two columns of five. "Fast forward" and "FF speed" are hidden (a 3DS cannot emulate fast enough for them to be useful): they
 // are listed after MB_COUNT so they are neither drawn nor tapped; holding Y / ZR still speeds up as far as the console allows.
-enum { MB_SLOTS, MB_AUTOSAVE, MB_MUTE, MB_SCALE, MB_HIDEMENU, MB_LOG, MB_BEST, MB_REWIND, MB_CLEARMAP, MB_COUNT, MB_FAST, MB_SPEED };
-static const char* const menuLabels[MB_COUNT] = {"Save slots", "Autosave", "Mute if slow", "Top screen", "Menus below", "Message log", "Bestiary", "Rewind 5s", "Clear map"};
+enum { MB_SLOTS, MB_AUTOSAVE, MB_MUTE, MB_SCALE, MB_HIDEMENU, MB_LOG, MB_BEST, MB_REWIND, MB_COUNT, MB_CLEARMAP, MB_FAST, MB_SPEED };   // Clear map, Fast forward and FF speed are hidden (listed after MB_COUNT: neither drawn nor tapped)
+static const char* const menuLabels[MB_COUNT] = {"Save slots", "Autosave", "Mute if slow", "Top screen", "Menus below", "Message log", "Bestiary", "Rewind 5s"};
 #define MENU_W 150
 #define MENU_H 28
 #define MENU_Y0 56
@@ -855,7 +855,7 @@ static void commandStrip(const GsState* st, const UiView* v, int y) {
 	static const char* const kTopNamesTla[3] = {"Fight", "Switch", "Flee"};   // Lost Age round menu order
 	const bool top = st->battlePhase == GS_PH_COMMAND && st->battleTop;
 	for (int i = 0; i < (top ? 3 : 6); ++i) {
-		if (!top && i == 3 && st->battleNoSummon) continue;   // the game hides Summon when none is available
+		if (!top && ((st->battleHidden >> i) & 1)) continue;   // the game hides Summon when none is available, Djinn when none is owned...
 		const char* label = top ? (gsRam()->battleLabel ? kTopNamesTla[i] : kTopNames[i]) : kCmdNames[i];
 		int w = gTextW(label, 0) + 10;
 		int shown = st->battlePhase == GS_PH_COMMAND ? st->battleCmd : v->lastCmd;

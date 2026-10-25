@@ -230,7 +230,18 @@ void gsReadState(GsState* out, GsMemRead rd, void* ctx) {
 	out->battleCmd = out->battleTarget = -1;
 	out->battleTop = false;
 	out->battleDepth = -1;
-	out->battleNoSummon = out->mode == GS_MODE_BATTLE && ram->battleCmdCount && rd(ctx, ram->battleCmdCount, 1) == 5;
+	out->battleHidden = 0;
+	if (out->mode == GS_MODE_BATTLE && ram->battleCmdCount) {
+		// The game's bar drops commands that do not apply: Summon when none is available, Djinn when no Djinn is owned (a new game's first fights),
+		// and Psynergy when the hero has none. The bar holds only what is left, in the same order.
+		unsigned n = rd(ctx, ram->battleCmdCount, 1);
+		bool anyDjinn = false;
+		for (int e = 0; e < GS_ELEMENTS; ++e) anyDjinn |= out->djinnOwned[e] != 0;
+		if (n == 5) out->battleHidden = 1 << 3;
+		else if (n == 4) out->battleHidden = (uint8_t) ((1 << 3) | (anyDjinn ? 1 << 1 : 1 << 2));
+		else if (n == 3) out->battleHidden = (1 << 1) | (1 << 2) | (1 << 3);
+	}
+	out->battleNoSummon = (out->battleHidden >> 3) & 1;
 	out->battlePhase = GS_PH_NONE;
 	out->battleText[0] = 0;
 	if (out->mode != GS_MODE_BATTLE) return;
@@ -313,8 +324,15 @@ void gsReadState(GsState* out, GsMemRead rd, void* ctx) {
 			out->battlePhase = GS_PH_COMMAND;
 			out->battleTop = rd(ctx, ram->battleTop, 1) == 0;
 			out->battleCmd = cmd < (out->battleTop ? 3u : 6u) ? (int) cmd : -1;
-			// With no Summon available the game's bar has five icons (Attack, Psynergy, Djinn, Item, Defend): map back to the six-slot order.
-			if (!out->battleTop && ram->battleCmdCount && rd(ctx, ram->battleCmdCount, 1) == 5 && cmd >= 3 && cmd < 5) out->battleCmd = (int) cmd + 1;
+			// With fewer than six icons the game's bar holds only the commands that apply: map back to the six-slot order.
+			if (!out->battleTop && out->battleHidden && cmd < 6) {   // game index -> app index: skip the commands the game hides
+				unsigned seen = 0;
+				out->battleCmd = -1;
+				for (int c = 0; c < 6; ++c) {
+					if ((out->battleHidden >> c) & 1) continue;
+					if (seen++ == cmd) { out->battleCmd = c; break; }
+				}
+			}
 		} else if (depth == 0) {
 			out->battlePhase = GS_PH_LIST;
 			if (dl >= 8 && desc[0] >= 'A' && desc[0] <= 'Z') memcpy(out->battleText, desc, sizeof(out->battleText));
