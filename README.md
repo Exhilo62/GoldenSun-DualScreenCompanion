@@ -49,6 +49,16 @@ Full step-by-step guide, sound details and troubleshooting: **[docs/EMULATORS.md
 - Autosave is written when you leave the app.
 - **Status:** beta. It has been tested on one dual-screen handheld and an Android emulator; other devices are unknown, so please report how it goes (device model, Android version). Details: [android/README.md](android/README.md).
 
+## Troubleshooting
+- **Android says the app cannot be installed / "blocked":** allow "install unknown apps" for the app you opened the `.apk` with (Settings > Apps > Special access). If an older test build is installed that was signed with a different key, uninstall it first (export your saves from Menu > Settings > page 2 before that).
+- **"Not a Golden Sun ROM":** the file's header code must be AGS* (Golden Sun) or AGF* (The Lost Age), any region. Use a dump of your own cartridge, not a patched or trimmed file.
+- **No sound on Android:** check the media volume; **Menu > Mute if slow** silences the sound when the device cannot hold full speed; copy the debug info (Menu > Settings > page 2) into your report.
+- **Buttons are the wrong way round (A/B, X/Y):** hold **Select** and press **ZL** once; it is remembered.
+- **The screens are on the wrong displays (dual-screen handheld):** press **ZL** (or Menu > Settings > page 2 > Swap).
+- **The touch buttons are in the way:** Menu > Settings > Touch buttons (Auto hides them while a controller is connected), or the PAD chip.
+- **Game runs slowly on a 3DS:** see the Old 3DS note above; the footer line on the Menu tab (`NNfps ...`) is what to put in a report.
+- **Lost saves after reinstalling on Android:** the app's data is deleted with the app; use Menu > Settings > page 2 > **Export saves** before uninstalling, **Import saves** afterwards.
+
 ## Roadmap
 This is built for the New 3DS XL; support for other devices (a desktop build, then an Android `.apk` running natively with Android audio) is being worked on. The Android beta above is the first part. Until then, feel free to try the `.3ds` / `.cia` on other devices and report how it goes. Details: **[docs/ROADMAP.md](docs/ROADMAP.md)**.
 

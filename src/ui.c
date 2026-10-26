@@ -50,7 +50,7 @@ bool uiShowTouchOpts;
 int uiMaxSpeed = 4;
 int uiPadMode, uiPadSize = 1, uiPadOpacity = 1;
 bool uiPadHaptic = true;
-#define SETTINGS_ROWS 6
+#define SETTINGS_ROWS 6   // the most rows on one page
 #define SETTINGS_Y (CONTENT_Y + 27)
 #define SETTINGS_STEP 21
 #define SETTINGS_ROW_H 19
@@ -343,6 +343,7 @@ void uiUpdate(UiView* v, const GsState* st, bool down, int x, int y, UiOutput* o
 					else if (r == 1) out->backup = 1;
 					else if (r == 2) out->backup = 2;
 					else if (r == 3) { v->showTouchOpts = false; v->showHotkeys = true; }
+					else if (r == 4) out->backup = 3;
 				}
 				++v->padOptsTick;
 			}
@@ -585,7 +586,8 @@ static void touchOptsView(const UiView* v) {
 		labels[1] = "Export saves";    vals[1] = "to a .zip";
 		labels[2] = "Import saves";    vals[2] = "from a .zip";
 		labels[3] = "Controls list";   vals[3] = "Open";
-		n = 4;
+		labels[4] = "Copy debug info"; vals[4] = "for a bug report";
+		n = 5;
 	}
 	for (int r = 0; r < n; ++r) {
 		int y = SETTINGS_Y + r * SETTINGS_STEP;
@@ -594,8 +596,7 @@ static void touchOptsView(const UiView* v) {
 		gTextRight(299, y + 6, vals[r], 1, dim[r] ? C_DIM : C_GOLD);
 	}
 	if (v->optsPage == 1) {
-		gText(14, SETTINGS_Y + 4 * SETTINGS_STEP + 2, "Saves: states, autosave, maps, settings (no ROMs).", 0, C_DIM);
-		gText(14, SETTINGS_Y + 4 * SETTINGS_STEP + 13, "Restart the app after importing.", 0, C_DIM);
+		gText(14, SETTINGS_Y + 5 * SETTINGS_STEP + 1, "Zips hold saves, no ROMs. Import closes the app.", 0, C_DIM);
 	}
 }
 

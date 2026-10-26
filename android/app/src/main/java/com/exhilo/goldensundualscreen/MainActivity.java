@@ -322,6 +322,22 @@ public class MainActivity extends SDLActivity {
         }
     }
 
+    /** Puts the app's own report plus the device's details on the clipboard (Settings > Copy debug info). */
+    public static void copyDebug(final String text) {
+        final MainActivity a = (MainActivity) SDLActivity.getContext();
+        if (a == null) return;
+        final String all = text + "\nAndroid " + Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ") | " + Build.MANUFACTURER + " " + Build.MODEL
+                + " | " + (Build.SUPPORTED_ABIS.length > 0 ? Build.SUPPORTED_ABIS[0] : "?")
+                + " | displays " + ((DisplayManager) a.getSystemService(Context.DISPLAY_SERVICE)).getDisplays().length
+                + " | controllers " + android.view.InputDevice.getDeviceIds().length;
+        a.runOnUiThread(new Runnable() {
+            @Override public void run() {
+                android.content.ClipboardManager cm = (android.content.ClipboardManager) a.getSystemService(Context.CLIPBOARD_SERVICE);
+                if (cm != null) cm.setPrimaryClip(android.content.ClipData.newPlainText("Golden Sun debug info", all));
+            }
+        });
+    }
+
     /** A short tick for on-screen buttons (called from native code). */
     public static void haptic() {
         final MainActivity a = (MainActivity) SDLActivity.getContext();

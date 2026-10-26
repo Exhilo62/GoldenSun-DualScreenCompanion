@@ -41,6 +41,7 @@ void plPollInput(PlInput* in);
 void plBackup(int op);
 bool plBackupPoll(char* msg, size_t n, bool* restart);
 void plRequestQuit(void);
+void plCopyText(const char* text);      // puts a diagnostic text (plus the device's own details) on the clipboard; no-op where there is no clipboard
 void plSwapScreens(void);               // dual-screen devices: exchange what the two displays show (the Menu tab's "Swap screens"); nothing on the 3DS
 
 // Audio: plAudioInit connects the core's sound output (before core->reset). Muting is asked for by the loop every frame.

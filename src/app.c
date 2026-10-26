@@ -29,6 +29,7 @@
 #include "menunav.h"
 #include "platform.h"
 #include "ui.h"
+#include "version.h"
 
 typedef uint64_t u64;
 typedef uint32_t u32;
@@ -538,7 +539,14 @@ int appRun(void) {
 		if (uo.rewind) { rewindBack(core, &ui); macroN = macroI = 0; act.phase = 0; ui.pickActive = false; ui.eqActive = false; }
 		if (uo.loadState) loadState(core, &ui);
 		if (uo.swapScreens) plSwapScreens();
-		if (uo.backup) { if (uo.backup == 1) appSaveNow(); plBackup(uo.backup); }
+		if (uo.backup == 3) {   // a short report the player can paste into an issue
+			char dbg[400];
+			snprintf(dbg, sizeof(dbg), "Golden Sun - Dual Screen Companion v%s %s | %s | %s | sound %s | speed x%d | top %s",
+			         APP_VERSION, APP_STAGE, gi->name, ui.perf[0] ? ui.perf : "no timing yet", plHasSound() ? "on" : "off", ui.speedMul, ui.topScale == TOP_FILL ? "Fill" : "1x");
+			plCopyText(dbg);
+			uiToast(&ui, "Debug info copied");
+			ui.toastFrames = 240;
+		} else if (uo.backup) { if (uo.backup == 1) appSaveNow(); plBackup(uo.backup); }
 		{
 			char bm[96];
 			bool restart = false;

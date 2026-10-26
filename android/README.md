@@ -3,6 +3,9 @@
 The same shared core as the 3DS and desktop builds (`src/app.c`) on the SDL2 platform layer in `desktop/platform_sdl.c`, packaged by Gradle + CMake.
 mGBA is compiled in from the `third_party/mgba` submodule with 16-bit colour, for arm64-v8a and armeabi-v7a.
 
+## Reporting a problem
+Menu > Settings > page 2 > **Copy debug info** copies the version, game, timing, sound state, Android version, device model, number of displays and controllers to the clipboard; paste it into the issue. `docs/TESTING.md` lists what to try.
+
 ## Signed APKs from CI
 `toolsndroid_ci_secrets.ps1` writes the four secrets (`ANDROID_KEYSTORE_B64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`) from your local keystore into `android/ci-secrets.txt` (gitignored): add them under repository Settings > Secrets and variables > Actions, then delete the file. After that every push builds `app-release.apk` signed with your key, and a `v*` tag attaches it to the release.
 

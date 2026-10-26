@@ -485,6 +485,22 @@ static bool swapPressed;
 void plSwapScreens(void) { swapPressed = true; }
 void plRequestQuit(void) { quitRequested = true; }
 
+void plCopyText(const char* text) {
+#ifdef __ANDROID__
+	JNIEnv* env = SDL_AndroidGetJNIEnv();
+	jobject act = SDL_AndroidGetActivity();
+	jclass cls = (*env)->GetObjectClass(env, act);
+	jmethodID m = (*env)->GetStaticMethodID(env, cls, "copyDebug", "(Ljava/lang/String;)V");
+	jstring js = (*env)->NewStringUTF(env, text);
+	if (m && js) (*env)->CallStaticVoidMethod(env, cls, m, js);
+	if (js) (*env)->DeleteLocalRef(env, js);
+	(*env)->DeleteLocalRef(env, cls);
+	(*env)->DeleteLocalRef(env, act);
+#else
+	SDL_SetClipboardText(text);
+#endif
+}
+
 #ifdef __ANDROID__
 static int jniStaticInt0(const char* name) {
 	JNIEnv* env = SDL_AndroidGetJNIEnv();
