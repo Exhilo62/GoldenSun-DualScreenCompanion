@@ -218,11 +218,27 @@ static int outW = 640, outH = 800;
 static bool ffToggle;
 // Touch buttons: 0 = Auto (hidden while a game controller is connected), 1 = always shown, 2 = always hidden. A small chip below the FF button cycles it
 // and stays on screen (dimmed) when the buttons are hidden; the choice is kept in padmode.txt in the data folder.
-static int padMode;
 static bool padsShown;   // the touch buttons are currently on screen and active
 static int padsConnected(void);
 
 static SDL_Rect rc(float x, float y, float w, float h) { return (SDL_Rect) {(int) x, (int) y, (int) w, (int) h}; }
+
+static float padScale(void) { return uiPadSize == 0 ? 0.8f : uiPadSize == 2 ? 1.25f : 1.0f; }
+static int padAlpha(void) { return uiPadOpacity == 0 ? 95 : uiPadOpacity == 2 ? 215 : 150; }
+
+#ifdef __ANDROID__
+static void haptic(void) {   // MainActivity.haptic(): a short tick through the window's haptic feedback (no permission needed)
+	JNIEnv* env = SDL_AndroidGetJNIEnv();
+	jobject act = SDL_AndroidGetActivity();
+	jclass cls = (*env)->GetObjectClass(env, act);
+	jmethodID m = (*env)->GetStaticMethodID(env, cls, "haptic", "()V");
+	if (m) (*env)->CallStaticVoidMethod(env, cls, m);
+	(*env)->DeleteLocalRef(env, cls);
+	(*env)->DeleteLocalRef(env, act);
+}
+#else
+static void haptic(void) {}
+#endif
 
 static void layout(void) {
 	SDL_GetRendererOutputSize(ren, &outW, &outH);
@@ -264,13 +280,15 @@ static void layout(void) {
 	} else if (H >= W) {   // portrait
 		float topH = topFill ? 180 : 160;   // Fill: the picture widened to 16:9 over the UI's full width
 		float k = (float) W / 320;
-		if (k * (topH + 240) > H * 0.62f) k = H * 0.62f / (topH + 240);
+		const float share = padsShown ? 0.62f : 0.93f;   // without the buttons the screens take almost the whole height (the PAD chip keeps a strip at the bottom)
+		if (k * (topH + 240) > H * share) k = H * share / (topH + 240);
 		int sw = (int) (320 * k), x0 = (W - sw) / 2;
 		if (topFill) topDst = rc(x0, 0, 320 * k, 180 * k);
 		else topDst = rc(x0 + 40 * k, 0, 240 * k, 160 * k);
 		botDst = rc(x0, topH * k, sw, 240 * k);
 		int cy = botDst.y + botDst.h, ch = H - cy;
 		float u = ch / 6.0f < W / 8.0f ? ch / 6.0f : W / 8.0f;   // one button unit
+		if (padsShown) { u = ch * (uiPadSize == 0 ? 0.122f : uiPadSize == 2 ? 0.178f : 0.15f); if (u > W / 6.2f) u = W / 6.2f; }   // 0.178 * ch is the most that keeps the D-pad clear of L and Start
 		if (u < 8) u = 8;
 		float mid = cy + ch / 2.0f;
 		ctl[CT_DPAD].r = rc(u * 0.5f, mid - 1.5f * u, 3 * u, 3 * u);
@@ -282,27 +300,33 @@ static void layout(void) {
 		ctl[CT_SELECT].r = rc(W / 2.0f - u / 6 - 2.2f * u, cy + ch - 1.2f * u, 2.2f * u, 0.8f * u);
 		ctl[CT_FF].r = rc(W / 2.0f - u, cy + 0.1f * u, 2 * u, 0.9f * u);
 		ctl[CT_PADMODE].r = rc(W / 2.0f - 1.3f * u, cy + 1.15f * u, 2.6f * u, 0.7f * u);
+		if (!padsShown) { float cu = W / 16.0f; ctl[CT_PADMODE].r = rc(W / 2.0f - 1.3f * cu, H - 1.0f * cu, 2.6f * cu, 0.7f * cu); }
 	} else {        // landscape
-		float m = W / 6.0f;
+		float mb = W / 8.0f;                          // the button columns
+		float m = padsShown ? mb : W * 0.015f;        // the screens use the whole width when the buttons are hidden
 		float a = (W - 2 * m) / 560;
 		if (a * 240 > H) a = (float) H / 240;
+		if (!padsShown && a * 240 > H * 0.93f) a = H * 0.93f / 240;   // a strip stays free for the dimmed PAD chip
 		float x0 = (W - 560 * a) / 2, y0 = (H - 240 * a) / 2;
 		topDst = rc(x0, y0 + 40 * a, 240 * a, 160 * a);
 		botDst = rc(x0 + 240 * a, y0, 320 * a, 240 * a);
-		float u = m / 4 < H / 7.0f ? m / 4 : H / 7.0f;
+		float u = mb / 3.4f < H / 6.0f ? mb / 3.4f : H / 6.0f;
+		u *= padScale();
+		if (u > mb / 2.7f) u = mb / 2.7f;
 		if (u < 8) u = 8;
-		ctl[CT_DPAD].r = rc(m / 2 - 1.5f * u, H / 2.0f - 0.5f * u, 3 * u, 3 * u);
-		ctl[CT_A].r = rc(W - m / 2 + 0.1f * u, H / 2.0f - 1.2f * u, 1.4f * u, 1.4f * u);
-		ctl[CT_B].r = rc(W - m / 2 - 1.5f * u, H / 2.0f + 0.3f * u, 1.4f * u, 1.4f * u);
-		ctl[CT_L].r = rc(m / 2 - u, u / 3, 2 * u, 0.9f * u);
-		ctl[CT_R].r = rc(W - m / 2 - u, u / 3, 2 * u, 0.9f * u);
-		ctl[CT_START].r = rc(W - m / 2 - 1.1f * u, H - 1.4f * u, 2.2f * u, 0.8f * u);
-		ctl[CT_SELECT].r = rc(m / 2 - 1.1f * u, H - 1.4f * u, 2.2f * u, 0.8f * u);
-		ctl[CT_FF].r = rc(W - m / 2 - u, 1.5f * u, 2 * u, 0.9f * u);
-		ctl[CT_PADMODE].r = rc(W - m / 2 - 1.3f * u, 2.5f * u, 2.6f * u, 0.7f * u);
+		ctl[CT_DPAD].r = rc(mb / 2 - 1.5f * u, H / 2.0f - 0.5f * u, 3 * u, 3 * u);
+		ctl[CT_A].r = rc(W - mb / 2 + 0.1f * u, H / 2.0f - 1.2f * u, 1.4f * u, 1.4f * u);
+		ctl[CT_B].r = rc(W - mb / 2 - 1.5f * u, H / 2.0f + 0.3f * u, 1.4f * u, 1.4f * u);
+		ctl[CT_L].r = rc(mb / 2 - u, u / 3, 2 * u, 0.9f * u);
+		ctl[CT_R].r = rc(W - mb / 2 - u, u / 3, 2 * u, 0.9f * u);
+		ctl[CT_START].r = rc(W - mb / 2 - 1.1f * u, H - 1.4f * u, 2.2f * u, 0.8f * u);
+		ctl[CT_SELECT].r = rc(mb / 2 - 1.1f * u, H - 1.4f * u, 2.2f * u, 0.8f * u);
+		ctl[CT_FF].r = rc(W - mb / 2 - u, 1.5f * u, 2 * u, 0.9f * u);
+		ctl[CT_PADMODE].r = rc(W - mb / 2 - 1.3f * u, 2.5f * u, 2.6f * u, 0.7f * u);
+		if (!padsShown) { float cu = H / 14.0f; ctl[CT_PADMODE].r = rc(W / 2.0f - 1.3f * cu, H - 0.95f * cu, 2.6f * cu, 0.7f * cu); }
 	}
 	ctl[CT_A].label = "A"; ctl[CT_B].label = "B"; ctl[CT_L].label = "L"; ctl[CT_R].label = "R";
-	ctl[CT_START].label = "START"; ctl[CT_SELECT].label = "SELECT"; ctl[CT_FF].label = "FF"; ctl[CT_PADMODE].label = padMode == 0 ? "PAD AUTO" : padMode == 1 ? "PAD ON" : "PAD OFF";
+	ctl[CT_START].label = "START"; ctl[CT_SELECT].label = "SELECT"; ctl[CT_FF].label = "FF"; ctl[CT_PADMODE].label = uiPadMode == 0 ? "PAD AUTO" : uiPadMode == 1 ? "PAD ON" : "PAD OFF";
 }
 
 // A 5x7 font for the few letters the buttons need: seven rows of five columns.
@@ -365,7 +389,7 @@ static void drawControls(void) {
 		case CT_SELECT: on = heldMask & (1u << GBA_KEY_SELECT); break;
 		case CT_FF: on = ffToggle; break;
 		}
-		SDL_SetRenderDrawColor(ren, on ? 230 : 40, on ? 200 : 50, on ? 120 : 90, on ? 200 : (i == CT_PADMODE && !padsShown ? 70 : 150));
+		SDL_SetRenderDrawColor(ren, on ? 230 : 40, on ? 200 : 50, on ? 120 : 90, on ? 200 : (i == CT_PADMODE && !padsShown ? 70 : padAlpha()));
 		if (i == CT_DPAD) {
 			const int dp = r.w / 3;
 			SDL_Rect h = {r.x, r.y + dp, r.w, dp}, v = {r.x + dp, r.y, dp, r.h};
@@ -429,9 +453,32 @@ static const char* swapPath(void) {
 	return gsAppFilePath("screenswap.txt", path, sizeof(path));
 }
 
-static const char* padModePath(void) {
+static const char* padLookPath(const char* name) {
 	static char path[160];
-	return gsAppFilePath("padmode.txt", path, sizeof(path));
+	return gsAppFilePath(name, path, sizeof(path));
+}
+
+static int savedLook[4] = {-1, -1, -1, -1};   // what is in padlook.txt: written whenever the Menu panel or the PAD chip changes an option
+static void savePadLook(void) {
+	int cur[4] = {uiPadMode, uiPadSize, uiPadOpacity, uiPadHaptic ? 1 : 0};
+	if (!memcmp(cur, savedLook, sizeof(cur))) return;
+	FILE* pf = fopen(padLookPath("padlook.txt"), "w");
+	if (pf) { fprintf(pf, "%d %d %d %d", cur[0], cur[1], cur[2], cur[3]); fclose(pf); memcpy(savedLook, cur, sizeof(cur)); }
+}
+
+static void loadPadLook(void) {
+	int v[4];
+	FILE* pf = fopen(padLookPath("padlook.txt"), "r");
+	if (pf) {
+		if (fscanf(pf, "%d %d %d %d", &v[0], &v[1], &v[2], &v[3]) == 4 && v[0] >= 0 && v[0] <= 2 && v[1] >= 0 && v[1] <= 2 && v[2] >= 0 && v[2] <= 2) {
+			uiPadMode = v[0]; uiPadSize = v[1]; uiPadOpacity = v[2]; uiPadHaptic = v[3] != 0;
+		}
+		fclose(pf);
+	} else if ((pf = fopen(padLookPath("padmode.txt"), "r")) != NULL) {   // 0.1.1 saved only the mode
+		if (fscanf(pf, "%d", &v[0]) == 1 && v[0] >= 0 && v[0] <= 2) uiPadMode = v[0];
+		fclose(pf);
+	}
+	savedLook[0] = uiPadMode; savedLook[1] = uiPadSize; savedLook[2] = uiPadOpacity; savedLook[3] = uiPadHaptic ? 1 : 0;
 }
 
 static bool swapPressed;
@@ -450,7 +497,7 @@ void plPollInput(PlInput* in) {
 		if (e.type == SDL_KEYDOWN && !e.key.repeat && e.key.keysym.scancode == SDL_SCANCODE_W) swapPressed = true;   // W: swap the two screens (an event, so a very short key press still counts)
 		if (e.type == SDL_CONTROLLERDEVICEADDED || e.type == SDL_CONTROLLERDEVICEREMOVED) openPads();
 	}
-	padsShown = !dualScreen && (padMode == 1 || (padMode == 0 && padsConnected() == 0));
+	padsShown = !dualScreen && (uiPadMode == 1 || (uiPadMode == 0 && padsConnected() == 0));
 	layout();
 	const Uint8* k = SDL_GetKeyboardState(NULL);
 	uint32_t keys = 0;
@@ -500,6 +547,7 @@ void plPollInput(PlInput* in) {
 	}
 	flipWas = flipNow;
 	static bool swapWas;
+	uiShowTouchOpts = !dualScreen;   // one display: the Menu tab offers the touch-button options in that slot
 	uiShowSwap = dualScreen;   // the Menu tab shows "Swap screens" while two displays are in use
 	if (((swapKey && !swapWas) || swapPressed) && dualScreen) {
 		swapPressed = false;
@@ -561,11 +609,18 @@ void plPollInput(PlInput* in) {
 		}
 	}
 	if (modeNow && !modeWas) {   // the PAD chip cycles Auto -> On -> Off
-		padMode = (padMode + 1) % 3;
-		FILE* pf = fopen(padModePath(), "w");
-		if (pf) { fprintf(pf, "%d\n", padMode); fclose(pf); }
+		uiPadMode = (uiPadMode + 1) % 3;
 	}
 	modeWas = modeNow;
+	savePadLook();   // also catches changes made in the Menu tab's Touch buttons panel
+	{   // a short vibration for every newly pressed on-screen button
+		static unsigned prevPressed;
+		unsigned now = 0;
+		for (int i = 0; i < np; ++i)
+			for (int c = 0; c < CT_PADMODE && padsShown; ++c) if (inRect(&ctl[c].r, px[i], py[i])) now |= 1u << c;
+		if ((now & ~prevPressed) && uiPadHaptic && padsShown) haptic();
+		prevPressed = now;
+	}
 	if (ffNow && !ffWas) ffToggle = !ffToggle;   // the FF button latches
 	ffWas = ffNow;
 	if (ffToggle) in->turbo = true;
@@ -767,7 +822,29 @@ static bool pickerLoop(GsGameId* out) {
 			if (up && !upWas) { sel = (sel + PICK_COUNT - 1) % PICK_COUNT; dirty = true; status[0] = 0; }
 			if (down && !downWas) { sel = (sel + 1) % PICK_COUNT; dirty = true; status[0] = 0; }
 			if (ok && !okWas) act = sel;
-			if (in.touch && !touchWas) { int h = pickHit(in.tx, in.ty); if (h != PICK_NONE) { sel = h; dirty = true; act = h; } }
+			// A tap acts when the finger is lifted; holding an installed game's card for about 0.7 s offers to remove its ROM instead.
+			static int touchHit = PICK_NONE, touchHeld;
+			if (in.touch && !touchWas) { touchHit = pickHit(in.tx, in.ty); touchHeld = 0; if (touchHit != PICK_NONE) { sel = touchHit; dirty = true; } }
+			if (in.touch && touchHit != PICK_NONE) {
+				if (++touchHeld == 45 && touchHit < 2 && have[touchHit]) {
+					char q[160];
+					snprintf(q, sizeof(q), "Remove the %s ROM from this app? Your saves and settings are kept; you can add the ROM again later.", gi[touchHit]->name);
+					SDL_MessageBoxButtonData bt[2] = {{SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 0, "Cancel"}, {SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 1, "Remove ROM"}};
+					SDL_MessageBoxData mb = {SDL_MESSAGEBOX_WARNING, win, "Golden Sun - Dual Screen Companion", q, 2, bt, NULL};
+					int ans = 0;
+					if (SDL_ShowMessageBox(&mb, &ans) == 0 && ans == 1) {
+						char rp[128];
+						remove(gsGameRomPath((GsGameId) touchHit, rp, sizeof(rp)));
+						have[touchHit] = gsGameRomExists((GsGameId) touchHit);
+						snprintf(status, sizeof(status), "%s", have[touchHit] ? "Could not remove the ROM" : "ROM removed");
+						if (!have[0] && !have[1]) sel = PICK_ADD;
+					}
+					dirty = true;
+					touchHit = PICK_NONE;   // the lift that follows must not count as a tap
+				}
+			}
+			if (!in.touch && touchWas && touchHit != PICK_NONE && touchHeld < 45) act = touchHit;
+			if (!in.touch) { if (touchWas) touchHit = PICK_NONE; touchHeld = 0; }
 			upWas = up; downWas = down; okWas = ok; touchWas = in.touch;
 			if (act != PICK_NONE) {
 				if (act < 2 && have[act]) { *out = (GsGameId) act; result = 1; }
@@ -860,11 +937,7 @@ bool plInit(void) {
 	botTex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_RGB565, SDL_TEXTUREACCESS_STREAMING, GFX_W, GFX_H);
 	SDL_SetTextureScaleMode(topTex, SDL_ScaleModeNearest);
 	SDL_SetTextureScaleMode(botTex, SDL_ScaleModeNearest);
-	{
-		FILE* pf = fopen(padModePath(), "r");
-		int v;
-		if (pf) { if (fscanf(pf, "%d", &v) == 1 && v >= 0 && v <= 2) padMode = v; fclose(pf); }
-	}
+	loadPadLook();
 	{
 		FILE* sf = fopen(swapPath(), "r");
 		int v;

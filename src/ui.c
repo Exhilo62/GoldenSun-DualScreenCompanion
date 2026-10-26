@@ -46,6 +46,9 @@ static const uint16_t tabAccent[TAB_COUNT] = {RGB(236, 188, 68), RGB(80, 170, 25
 #define TAB_H 44
 bool uiShowHotkeys;
 bool uiShowSwap;
+bool uiShowTouchOpts;
+int uiPadMode, uiPadSize = 1, uiPadOpacity = 1;
+bool uiPadHaptic = true;
 #define CONTENT_Y 50
 #define CONTENT_H 158
 #define FOOT_Y 210
@@ -311,6 +314,20 @@ void uiUpdate(UiView* v, const GsState* st, bool down, int x, int y, UiOutput* o
 		if (!down) v->logDrag = false;
 		if (!(edge && y >= TAB_Y && y < TAB_Y + TAB_H)) return;
 	}
+	if (v->showTouchOpts) {   // touch-button options: tap a row to step through its values; Back to leave; a tab tap passes through
+		if (edge && inRect(x, y, 254, CONTENT_Y + 5, 54, 17)) { v->showTouchOpts = false; return; }
+		if (edge) {
+			for (int r = 0; r < 4; ++r) {
+				if (!inRect(x, y, 12, CONTENT_Y + 29 + r * 27, 296, 24)) continue;
+				if (r == 0) uiPadMode = (uiPadMode + 1) % 3;
+				else if (r == 1) uiPadSize = (uiPadSize + 1) % 3;
+				else if (r == 2) uiPadOpacity = (uiPadOpacity + 1) % 3;
+				else uiPadHaptic = !uiPadHaptic;
+				++v->padOptsTick;
+			}
+		}
+		if (!(edge && y >= TAB_Y && y < TAB_Y + TAB_H)) return;
+	}
 	if (v->showHotkeys) {   // the controls list: Back to leave; only a tab tap passes through
 		if (edge && inRect(x, y, 254, CONTENT_Y + 5, 54, 17)) { v->showHotkeys = false; return; }
 		if (!(edge && y >= TAB_Y && y < TAB_Y + TAB_H)) return;
@@ -370,6 +387,7 @@ void uiUpdate(UiView* v, const GsState* st, bool down, int x, int y, UiOutput* o
 			v->showLog = false;
 			v->showBest = false;
 			v->showHotkeys = false;
+			v->showTouchOpts = false;
 			v->showSlots = false;
 			v->showChar = false;
 			v->showKeys = false;
@@ -454,7 +472,7 @@ void uiUpdate(UiView* v, const GsState* st, bool down, int x, int y, UiOutput* o
 	if (v->tab == TAB_MENU) {
 		for (int i = 0; i < MB_COUNT; ++i) {
 			if (i == MB_HOTKEYS && !uiShowHotkeys) continue;
-			if (i == MB_SWAP && !uiShowSwap) continue;
+			if (i == MB_SWAP && !uiShowSwap && !uiShowTouchOpts) continue;
 			if (!inRect(x, y, MENU_BX(i), MENU_BY(i), MENU_W, MENU_H)) continue;
 			switch (i) {
 			case MB_FAST: v->fastForward = !v->fastForward; break;
@@ -467,7 +485,7 @@ void uiUpdate(UiView* v, const GsState* st, bool down, int x, int y, UiOutput* o
 			case MB_LOG: v->showLog = true; v->logScroll = 0; break;
 			case MB_BEST: v->showBest = true; v->bestScroll = 0; break;
 			case MB_HOTKEYS: v->showHotkeys = true; break;
-			case MB_SWAP: out->swapScreens = true; break;
+			case MB_SWAP: if (uiShowSwap) out->swapScreens = true; else v->showTouchOpts = true; break;
 			case MB_REWIND: out->rewind = true; break;
 			case MB_CLEARMAP: out->clearMap = true; break;
 			}
@@ -516,6 +534,24 @@ static int logTotalHeight(void) {
 	int h = 0;
 	for (int i = dlogCount() - 1; i >= 0; --i) h += wrapLines(dlogText(i), 280, 1, 0, 0, 0, 0, 0, false) * LOG_LINE + 8;
 	return h;
+}
+
+static void touchOptsView(void) {
+	gPanel(4, CONTENT_Y, 312, CONTENT_H, C_CARD_T, C_CARD_B, C_GOLD);
+	gPill(12, CONTENT_Y + 5, 150, 17, C_PANEL_T, C_PANEL_B, C_GOLD);
+	gTextCentered(87, CONTENT_Y + 9, "Touch buttons", 1, C_GOLD);
+	gPanel(254, CONTENT_Y + 5, 54, 17, C_PANEL_T, C_PANEL_B, C_GOLD);
+	gTextCentered(281, CONTENT_Y + 9, "Back", 1, C_TEXT);
+	static const char* const modeN[3] = {"Auto", "On", "Off"}, * const sizeN[3] = {"Small", "Medium", "Large"}, * const opN[3] = {"Low", "Medium", "High"};
+	const char* labels[4] = {"Show buttons", "Button size", "Opacity", "Vibration"};
+	const char* vals[4] = {modeN[uiPadMode % 3], sizeN[uiPadSize % 3], opN[uiPadOpacity % 3], uiPadHaptic ? "On" : "Off"};
+	for (int r = 0; r < 4; ++r) {
+		int y = CONTENT_Y + 29 + r * 27;
+		gPanel(12, y, 296, 24, C_PANEL_T, C_PANEL_B, C_GOLD_DIM);
+		gTextShadow(21, y + 7, labels[r], 1, C_TEXT);
+		gTextRight(299, y + 7, vals[r], 1, C_GOLD);
+	}
+	gText(14, CONTENT_Y + 29 + 4 * 27 + 4, "Auto: hidden while a controller is connected", 0, C_DIM);
 }
 
 static void hotkeysView(void) {
@@ -1289,12 +1325,12 @@ static void itemsTab(const GsState* st, const UiView* v) {
 static void menuTab(const UiView* v) {
 	for (int i = 0; i < MB_COUNT; ++i) {
 		if (i == MB_HOTKEYS && !uiShowHotkeys) continue;
-		if (i == MB_SWAP && !uiShowSwap) continue;
+		if (i == MB_SWAP && !uiShowSwap && !uiShowTouchOpts) continue;
 		int x = MENU_BX(i), y = MENU_BY(i);
 		bool on = (i == MB_FAST && v->fastForward) || (i == MB_HIDEMENU && v->hideMenus) || (i == MB_AUTOSAVE && v->autoSave) || (i == MB_MUTE && v->muteSlow);
 		gPanel(x, y, MENU_W, MENU_H, on ? C_ACTIVE_T : C_PANEL_T, on ? C_ACTIVE_B : C_PANEL_B, on ? C_GOLD : C_GOLD_DIM);
 		const char* val = i == MB_FAST ? (v->fastForward ? "On" : "Off") : i == MB_SCALE ? (v->topScale == TOP_FILL ? "Fill" : "1x") : i == MB_HIDEMENU ? (v->hideMenus ? "On" : "Off") : i == MB_AUTOSAVE ? (v->autoSave ? "On" : "Off") : i == MB_MUTE ? (v->muteSlow ? "On" : "Off") : i == MB_SPEED ? (const char* const[]) {"2x", "2x", "3x", "4x"}[v->speedMul < 2 ? 1 : v->speedMul > 4 ? 3 : v->speedMul - 1] : "";
-		gTextShadow(x + 9, y + 6, menuLabels[i], 1, C_TEXT);
+		gTextShadow(x + 9, y + 6, i == MB_SWAP && !uiShowSwap ? "Touch buttons" : menuLabels[i], 1, C_TEXT);
 		if (val[0]) gTextRight(x + MENU_W - 9, y + 6, val, 1, C_GOLD);
 	}
 }
@@ -1466,6 +1502,11 @@ void uiDraw(uint16_t* framebuffer, const GsState* st, const UiView* v) {
 	}
 	if (v->showSlots) {
 		slotsView(v);
+		footer(st);
+		return;
+	}
+	if (v->showTouchOpts) {
+		touchOptsView();
 		footer(st);
 		return;
 	}

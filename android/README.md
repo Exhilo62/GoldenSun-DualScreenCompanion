@@ -3,6 +3,9 @@
 The same shared core as the 3DS and desktop builds (`src/app.c`) on the SDL2 platform layer in `desktop/platform_sdl.c`, packaged by Gradle + CMake.
 mGBA is compiled in from the `third_party/mgba` submodule with 16-bit colour, for arm64-v8a and armeabi-v7a.
 
+## Signed APKs from CI
+`toolsndroid_ci_secrets.ps1` writes the four secrets (`ANDROID_KEYSTORE_B64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`) from your local keystore into `android/ci-secrets.txt` (gitignored): add them under repository Settings > Secrets and variables > Actions, then delete the file. After that every push builds `app-release.apk` signed with your key, and a `v*` tag attaches it to the release.
+
 ## Build
 Needs: JDK 17+, the Android SDK (platform 34, build-tools 34.0.0, NDK 26.3.11579264) and the SDL2 2.30.9 **source** (`SDL2-2.30.9.zip` from https://libsdl.org/release/, unzipped).
 Put the repo in a path without spaces, then run `android\build_apk.bat` (it reads `JAVA_HOME`, `ANDROID_HOME`, `SDL2_DIR`; the defaults in the script are this project's folders).
@@ -17,6 +20,7 @@ The same themed pick screen as the 3DS app (banner with the logo, a card per gam
 
 ## ROMs
 You supply your own ROMs. At start-up the app shows a menu: **Play** (for each ROM it has) and **Add ROM file**, which opens Android's file picker. The chosen file's header is checked (Golden Sun = AGS*, The Lost Age = AGF*) and it is copied into the app's folder (`Android/data/com.exhilo.goldensundualscreen/files/` as `golden_sun.gba` / `lost_age.gba`); it never leaves the device. Copying the files there by hand works too.
+Dumping your own ROM: use a dump of your own cartridge made with a GBA dumper (a `.gba` file, about 8 MB for Golden Sun and 16 MB for The Lost Age); the app only checks the game code in the header.
 Autosave: when the app leaves the foreground (home button, app switch, screen off) the autosave state, bestiary and map are written first, if Autosave is On.
 
 ## Screens
@@ -28,6 +32,8 @@ Autosave: when the app leaves the foreground (home button, app switch, screen of
 - **Controls list:** Menu tab > **Controls** shows all the hotkeys above on screen (Android and desktop builds; the 3DS build does not have the entry).
 - **System bars:** the status bar and the navigation bar / gesture pill are hidden on both displays and hidden again whenever Android shows them (a swipe from the edge still brings them back for a moment).
 - **Focus:** the window on the second display never takes input focus, so touching it does not pull the controller away from the game.
+- **Touch buttons options** (Menu tab > **Touch buttons**, on a single display; on a dual-screen device that slot is "Swap screens"): *Show buttons* (Auto / On / Off), *Button size* (Small / Medium / Large), *Opacity* (Low / Medium / High) and *Vibration* (a short tick when an on-screen button is pressed). They are saved in `padlook.txt` in the app folder. With the buttons hidden the screens grow to almost the whole display (the dimmed PAD chip stays in a free strip so they can be brought back).
+- **Remove a ROM:** on the start-up screen hold an installed game's card for about a second; a confirmation asks before the ROM is deleted from the app (saves and settings are kept). Adding the ROM again picks them up.
 - **Touch buttons**: a small `PAD` chip below the FF button cycles **Auto** (hidden while a controller is connected, shown again when it is unplugged), **On** and **Off**. The chip stays on screen, dimmed, when the buttons are hidden; the choice is saved in `padmode.txt` in the app folder. On a dual-screen handheld the buttons are always hidden.
 
 Status: tested on one dual-screen handheld and on an Android 34 emulator (picker, layouts, touch, saving, dual-screen output). Other devices are unknown.

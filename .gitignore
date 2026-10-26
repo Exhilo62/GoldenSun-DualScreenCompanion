@@ -41,3 +41,4 @@ android/build_log.txt
 android/keystore.properties
 *.jks
 *.keystore
+android/ci-secrets.txt

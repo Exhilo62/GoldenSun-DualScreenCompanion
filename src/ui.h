@@ -20,6 +20,8 @@ enum { TOP_1X, TOP_FILL, TOP_MODES };  // 1:1 centred | stretched to the full 40
 typedef struct {
 	int tab;
 	int itemChar;          // whose inventory the ITEMS tab shows
+	bool showTouchOpts;    // the touch-button options panel replaces the tab content (Android and desktop builds only)
+	unsigned padOptsTick;  // bumped whenever an option changes so the panel is redrawn
 	bool showHotkeys;      // the controls / hotkeys list replaces the tab content (Android and desktop builds only)
 	bool showKeys;         // the touch keyboard for the Lost Age password screen
 	bool roundSaved;       // set by main: a command round is recorded and can be repeated
@@ -114,6 +116,13 @@ bool uiShowsMap(const UiView* v);
 extern bool uiShowHotkeys;
 // Set by the platform while two physical displays are in use: adds a "Swap screens" button to the Menu tab.
 extern bool uiShowSwap;
+// Touch-button options (Android / desktop): set by the platform, edited in the Menu tab's "Touch buttons" panel (which shares the slot of "Swap screens"
+// and is shown while only one display is in use).
+extern bool uiShowTouchOpts;
+extern int uiPadMode;      // 0 Auto (hidden while a controller is connected), 1 always shown, 2 always hidden
+extern int uiPadSize;      // 0 small, 1 medium, 2 large
+extern int uiPadOpacity;   // 0 low, 1 medium, 2 high
+extern bool uiPadHaptic;   // a short vibration when an on-screen button is pressed
 void uiToast(UiView* v, const char* msg);
 // Renders into a 320x240 RGB565 framebuffer in 3DS layout: fb[x * 240 + (239 - y)].
 void uiDraw(uint16_t* fb, const GsState* st, const UiView* v);

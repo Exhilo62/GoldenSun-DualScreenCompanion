@@ -10,6 +10,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Display;
+import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.SurfaceHolder;
@@ -191,6 +192,15 @@ public class MainActivity extends SDLActivity {
                     pickState = 4;
                 }
             }
+        });
+    }
+
+    /** A short tick for on-screen buttons (called from native code). */
+    public static void haptic() {
+        final MainActivity a = (MainActivity) SDLActivity.getContext();
+        if (a == null) return;
+        a.runOnUiThread(new Runnable() {
+            @Override public void run() { a.getWindow().getDecorView().performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY); }
         });
     }
 

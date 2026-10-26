@@ -82,7 +82,7 @@ void pickDrawBottom(uint16_t* canvas, int sel, int last, const bool installed[2]
 	bool addSel = sel == PICK_ADD;
 	gPanel(CARD_X, ADD_Y, CARD_W, ADD_H, addSel ? L_ACTIVE_T : L_CARD_T, addSel ? L_ACTIVE_B : L_CARD_B, addSel ? L_GOLD : L_GOLD_DIM);
 	gTextCentered(160, ADD_Y + 6, "Add ROM file", 1, addSel ? L_GOLD : L_TEXT);
-	gTextCentered(160, ADD_Y + 20, "Your ROMs stay on this device", 0, L_DIM);
+	gTextCentered(160, ADD_Y + 20, installed[0] || installed[1] ? "Hold a game to remove its ROM" : "Use a dump of your own cartridge (.gba)", 0, L_DIM);
 }
 
 int pickHit(int x, int y) {
