@@ -26,7 +26,11 @@ RULES = [  # (regex on the internal label, location name)
  (r'^DJ_ATK', 'Atteka Cavern'), (r'^MAR_', 'Mars Lighthouse'), (r'^TAKARA', 'Treasure Isle'), (r'^ANEMOS', 'Anemos Sanctum'),
  (r'^EPILOGUE', 'Epilogue'),
  # added Oct 26: the rest of the families whose prefix is unambiguous (RITOU = islet, TEIHAKU = anchored, MTO = Mars tower like JTO; the test rooms are debug maps)
- (r'^CHAM_', 'Champa'), (r'^(RITOU|DJ_RITOU)', 'Islet Cave'), (r'^TEIHAKU', 'Lemurian Ship'), (r'^REM_D$', 'Lemuria'), (r'^MTO', 'Mars Lighthouse'),
+ (r'^CHAM_', 'Champa'), (r'^DJ_RITOU', 'Islet Cave'), (r'^RITOU', 'Islets'), (r'^TEIHAKU', 'Lemurian Ship'), (r'^REM_D$', 'Lemuria'), (r'^MTO', 'Mars Lighthouse'),
+ # inferred (Oct 26) from the label prefix and the order of the location list (text ids 0xE00+88..170); not confirmed in game
+ (r'^(OSE_ST|GAKECHAM)', 'Osenia Cliffs'), (r'^ARA_', 'Alhafran Cave'), (r'^GN_ID', 'Gondowan Cliffs'), (r'^(MING|DJ_MNG)', 'Kibombo Mountains'),
+ (r'^GANCHI', 'Gabomba Catacombs'), (r'^GRAPUSDJ', 'Apojii Islands Cave'), (r'^(GRAPUS|GR_ROOM)', 'Apojii Islands'), (r'^ACA_', 'Aqua Rock'),
+ (r'^GR_', 'Gaia Rock'), (r'^SOUTH', 'Tundaria Tower'), (r'^SEA_', 'Sea of Time'), (r'^DJ_SYMN', 'Shaman Village Cave'),
  (r'^ALFA', 'Alhafra'), (r'^GIA_ROOM', 'Gaia Rock'), (r'^(TEST|YAMTEST|SHOPTEST|GET_ITEM|ROUNGE)', 'Debug map'),
 ]
 out = []

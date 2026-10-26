@@ -10,7 +10,7 @@
 
 **Android app (beta)**
 - **Settings panel** (Menu > Settings, two pages): Top screen Fill / 1x, touch buttons (show Auto / On / Off, size, opacity, vibration), fast-forward speed up to **16x** (the 3DS keeps 4x), swap screens, **Export saves / Import saves** (a .zip of the saves through the system file picker; ROMs are never included; the app closes after an import so nothing is written over the restored files) and the Controls list.
-- The Lost Age: more areas have real names (Champa, Islet Cave, Lemurian Ship, Mars Lighthouse, Gaia Rock rooms...); unused placeholder maps read "Unused map" and the test rooms "Debug map".
+- The Lost Age: more areas have real names (Champa, Islet Cave, Lemurian Ship, Mars Lighthouse, Gaia Rock rooms...); unused placeholder maps read "Unused map" and the test rooms "Debug map". 314 of the 325 map ids now carry a place name; the last batch (Alhafran Cave, Gondowan Cliffs, Kibombo Mountains, Gabomba Catacombs, Apojii Islands, Aqua Rock, Gaia Rock, Tundaria Tower, Sea of Time, Shaman Village Cave, Osenia Cliffs) is inferred from the map labels and the order of the game's location list, not confirmed in game; a wrong guess can be fixed in `lost_age/areas.txt`.
 - (earlier in this release) Touch-button options: show Auto / On / Off, size, opacity, vibration; bigger landscape and portrait layouts, and with the buttons hidden the screens fill almost the whole display.
 - Start-up screen: hold a game's card to remove its ROM from the app; hint text for first-time ROM adding.
 - Menu tab: "Swap screens" button on dual-screen devices (besides ZL / W).

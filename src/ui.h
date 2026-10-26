@@ -71,7 +71,7 @@ typedef struct {
 	int lastX, lastY;
 	int toastFrames;
 	char perf[72];         // timing summary from main (shown in the footer while the Menu tab is open)
-	char toast[24];
+	char toast[64];
 } UiView;
 
 typedef struct {

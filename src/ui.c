@@ -1477,6 +1477,15 @@ static void drawTabBar(const UiView* v) {
 	barValid[variant] = true;
 }
 
+// The short message in the middle of the bottom screen; long ones (the backup results) drop to the small font.
+static void drawToast(const UiView* v) {
+	if (v->toastFrames <= 0) return;
+	int sc = gTextW(v->toast, 2) + 24 > UI_W - 8 ? 1 : 2;
+	int w = gTextW(v->toast, sc) + 24;
+	gPanel((UI_W - w) / 2, 100, w, sc == 2 ? 28 : 22, C_PANEL_T, C_PANEL_B, C_GOLD);
+	gTextCentered(UI_W / 2, sc == 2 ? 108 : 106, v->toast, sc, C_GOLD);
+}
+
 void uiDraw(uint16_t* framebuffer, const GsState* st, const UiView* v) {
 	gBegin(framebuffer);
 	if (v->mirror) {
@@ -1553,6 +1562,7 @@ void uiDraw(uint16_t* framebuffer, const GsState* st, const UiView* v) {
 	if (v->showTouchOpts) {
 		touchOptsView(v);
 		footer(st);
+		drawToast(v);
 		return;
 	}
 	if (v->showHotkeys) {
@@ -1580,9 +1590,5 @@ void uiDraw(uint16_t* framebuffer, const GsState* st, const UiView* v) {
 	case TAB_BATTLE: battlePanel(st, v); break;
 	}
 	footer(st);
-	if (v->toastFrames > 0) {
-		int w = gTextW(v->toast, 2) + 24;
-		gPanel((UI_W - w) / 2, 100, w, 28, C_PANEL_T, C_PANEL_B, C_GOLD);
-		gTextCentered(UI_W / 2, 108, v->toast, 2, C_GOLD);
-	}
+	drawToast(v);
 }
