@@ -31,7 +31,7 @@ Implemented in `src/mapdecode.c` (both games), used by `src/mapview.c` (Map tab)
 (all 205 / 324 of 325 map ids decode; Vale matches the Python reference pixel for pixel).
 
 ## Still to do
-- The world maps (affine layers) still use the stitched map; the Lost Age world map id is not known yet.
+- The world maps (affine layers) still use the stitched map. The Lost Age label "WORLD" is map id 2, but that entry is only a 1 KB stub (set 1, files 620-625); the real world data is not located yet (see docs/ANDROID_PORT.md, Oct 26).
 - Layer 2 is skipped where the game alpha-blends it (a glow layer in Golden Sun houses); maps that blend it differently may look slightly different from the game.
 - Maps with no data in the layers the app draws (some cutscene / battle-only ids) show nothing.
 - Other regional releases (Japanese, German...) have different table addresses; they fall back to the stitched map.

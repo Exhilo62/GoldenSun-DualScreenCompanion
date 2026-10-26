@@ -9,7 +9,9 @@
 - The Lost Age, new game without a password: the party cards showed four copies of Isaac (Lv28) through the opening. The save-data party list is still empty there; the game keeps its active party in a second copy, which is now used when the first one is empty or invalid. At the Venus Lighthouse the cards now show Felix, Jenna and Mia (and Jenna alone later), as the game's own menu does.
 
 **Android app (beta)**
-- Touch-button options (Menu > Touch buttons): show Auto / On / Off, size, opacity, vibration; bigger landscape and portrait layouts, and with the buttons hidden the screens fill almost the whole display.
+- **Settings panel** (Menu > Settings, two pages): Top screen Fill / 1x, touch buttons (show Auto / On / Off, size, opacity, vibration), fast-forward speed up to **16x** (the 3DS keeps 4x), swap screens, **Export saves / Import saves** (a .zip of the saves through the system file picker; ROMs are never included; the app closes after an import so nothing is written over the restored files) and the Controls list.
+- The Lost Age: more areas have real names (Champa, Islet Cave, Lemurian Ship, Mars Lighthouse, Gaia Rock rooms...); unused placeholder maps read "Unused map" and the test rooms "Debug map".
+- (earlier in this release) Touch-button options: show Auto / On / Off, size, opacity, vibration; bigger landscape and portrait layouts, and with the buttons hidden the screens fill almost the whole display.
 - Start-up screen: hold a game's card to remove its ROM from the app; hint text for first-time ROM adding.
 - Menu tab: "Swap screens" button on dual-screen devices (besides ZL / W).
 - Sound: resampled to the device's own rate with mGBA's sinc resampler and paced by the sound card's clock (no more crackling from the queue running dry or overflowing).

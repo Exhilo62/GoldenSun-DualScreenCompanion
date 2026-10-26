@@ -44,7 +44,7 @@ Full step-by-step guide, sound details and troubleshooting: **[docs/EMULATORS.md
 - First start: tap **Add ROM file**, choose your Golden Sun / The Lost Age `.gba`, then **Play**.
 - Controls: on-screen buttons (a small **PAD** chip cycles Auto / On / Off; Auto hides them while a controller is connected), game controllers (A = A, B = B, shoulders = L / R, Start / Back, D-pad or left stick, Y or right trigger = fast forward; Select + ZL flips A/B and X/Y if your device reports them the other way), or a keyboard.
 - **Top screen: Fill** (Menu tab) stretches the game picture to 16:9; the app is full screen. The start-up screen has the same look as the 3DS pick screen.
-- **Menu > Controls** lists the hotkeys on screen. The navigation bar is hidden.
+- **Menu > Settings** (Android / desktop): top screen, touch-button options, fast forward up to 16x, swap screens, and **Export / Import saves** (a .zip of your saves; keep one before uninstalling the app, Android deletes the app's data with it). **Menu > Controls** lists the hotkeys on screen. The navigation bar is hidden.
 - **Dual-screen handhelds:** if the two screens are the wrong way round, press **ZL** (or **W**) to swap them; it is remembered.
 - Autosave is written when you leave the app.
 - **Status:** beta. It has been tested on one dual-screen handheld and an Android emulator; other devices are unknown, so please report how it goes (device model, Android version). Details: [android/README.md](android/README.md).

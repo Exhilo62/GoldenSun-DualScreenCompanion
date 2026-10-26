@@ -47,8 +47,13 @@ static const uint16_t tabAccent[TAB_COUNT] = {RGB(236, 188, 68), RGB(80, 170, 25
 bool uiShowHotkeys;
 bool uiShowSwap;
 bool uiShowTouchOpts;
+int uiMaxSpeed = 4;
 int uiPadMode, uiPadSize = 1, uiPadOpacity = 1;
 bool uiPadHaptic = true;
+#define SETTINGS_ROWS 6
+#define SETTINGS_Y (CONTENT_Y + 27)
+#define SETTINGS_STEP 21
+#define SETTINGS_ROW_H 19
 #define CONTENT_Y 50
 #define CONTENT_H 158
 #define FOOT_Y 210
@@ -314,15 +319,31 @@ void uiUpdate(UiView* v, const GsState* st, bool down, int x, int y, UiOutput* o
 		if (!down) v->logDrag = false;
 		if (!(edge && y >= TAB_Y && y < TAB_Y + TAB_H)) return;
 	}
-	if (v->showTouchOpts) {   // touch-button options: tap a row to step through its values; Back to leave; a tab tap passes through
+	if (v->showTouchOpts) {   // settings: tap a row to step through its values (or run it); Back / Page buttons at the top; a tab tap passes through
 		if (edge && inRect(x, y, 254, CONTENT_Y + 5, 54, 17)) { v->showTouchOpts = false; return; }
+		if (edge && inRect(x, y, 190, CONTENT_Y + 5, 60, 17)) { v->optsPage ^= 1; ++v->padOptsTick; return; }
 		if (edge) {
-			for (int r = 0; r < 4; ++r) {
-				if (!inRect(x, y, 12, CONTENT_Y + 29 + r * 27, 296, 24)) continue;
-				if (r == 0) uiPadMode = (uiPadMode + 1) % 3;
-				else if (r == 1) uiPadSize = (uiPadSize + 1) % 3;
-				else if (r == 2) uiPadOpacity = (uiPadOpacity + 1) % 3;
-				else uiPadHaptic = !uiPadHaptic;
+			static const int steps[7] = {2, 3, 4, 6, 8, 12, 16};
+			for (int r = 0; r < SETTINGS_ROWS; ++r) {
+				if (!inRect(x, y, 12, SETTINGS_Y + r * SETTINGS_STEP, 296, SETTINGS_ROW_H)) continue;
+				if (v->optsPage == 0) {
+					if (r == 0) v->topScale = (v->topScale + 1) % TOP_MODES;
+					else if (r == 1) uiPadMode = (uiPadMode + 1) % 3;
+					else if (r == 2) uiPadSize = (uiPadSize + 1) % 3;
+					else if (r == 3) uiPadOpacity = (uiPadOpacity + 1) % 3;
+					else if (r == 4) uiPadHaptic = !uiPadHaptic;
+					else if (r == 5) {   // fast-forward speed: the next step that this platform allows
+						int n = uiMaxSpeed > 4 ? 7 : 3, k = 0;
+						while (k < n && steps[k] < v->speedMul) ++k;
+						k = k < n && steps[k] == v->speedMul ? k + 1 : k;
+						v->speedMul = steps[k >= n ? 0 : k];
+					}
+				} else {
+					if (r == 0 && uiShowSwap) out->swapScreens = true;
+					else if (r == 1) out->backup = 1;
+					else if (r == 2) out->backup = 2;
+					else if (r == 3) { v->showTouchOpts = false; v->showHotkeys = true; }
+				}
 				++v->padOptsTick;
 			}
 		}
@@ -472,7 +493,7 @@ void uiUpdate(UiView* v, const GsState* st, bool down, int x, int y, UiOutput* o
 	if (v->tab == TAB_MENU) {
 		for (int i = 0; i < MB_COUNT; ++i) {
 			if (i == MB_HOTKEYS && !uiShowHotkeys) continue;
-			if (i == MB_SWAP && !uiShowSwap && !uiShowTouchOpts) continue;
+			if (i == MB_SWAP && !uiShowTouchOpts) continue;
 			if (!inRect(x, y, MENU_BX(i), MENU_BY(i), MENU_W, MENU_H)) continue;
 			switch (i) {
 			case MB_FAST: v->fastForward = !v->fastForward; break;
@@ -485,7 +506,7 @@ void uiUpdate(UiView* v, const GsState* st, bool down, int x, int y, UiOutput* o
 			case MB_LOG: v->showLog = true; v->logScroll = 0; break;
 			case MB_BEST: v->showBest = true; v->bestScroll = 0; break;
 			case MB_HOTKEYS: v->showHotkeys = true; break;
-			case MB_SWAP: if (uiShowSwap) out->swapScreens = true; else v->showTouchOpts = true; break;
+			case MB_SWAP: v->showTouchOpts = true; v->optsPage = 0; break;
 			case MB_REWIND: out->rewind = true; break;
 			case MB_CLEARMAP: out->clearMap = true; break;
 			}
@@ -536,22 +557,46 @@ static int logTotalHeight(void) {
 	return h;
 }
 
-static void touchOptsView(void) {
+static void touchOptsView(const UiView* v) {
 	gPanel(4, CONTENT_Y, 312, CONTENT_H, C_CARD_T, C_CARD_B, C_GOLD);
-	gPill(12, CONTENT_Y + 5, 150, 17, C_PANEL_T, C_PANEL_B, C_GOLD);
-	gTextCentered(87, CONTENT_Y + 9, "Touch buttons", 1, C_GOLD);
+	gPill(12, CONTENT_Y + 5, 120, 17, C_PANEL_T, C_PANEL_B, C_GOLD);
+	gTextCentered(72, CONTENT_Y + 9, v->optsPage == 0 ? "Settings 1/2" : "Settings 2/2", 1, C_GOLD);
+	gPanel(190, CONTENT_Y + 5, 60, 17, C_PANEL_T, C_PANEL_B, C_GOLD);
+	gTextCentered(220, CONTENT_Y + 9, v->optsPage == 0 ? "Page 2" : "Page 1", 1, C_TEXT);
 	gPanel(254, CONTENT_Y + 5, 54, 17, C_PANEL_T, C_PANEL_B, C_GOLD);
 	gTextCentered(281, CONTENT_Y + 9, "Back", 1, C_TEXT);
 	static const char* const modeN[3] = {"Auto", "On", "Off"}, * const sizeN[3] = {"Small", "Medium", "Large"}, * const opN[3] = {"Low", "Medium", "High"};
-	const char* labels[4] = {"Show buttons", "Button size", "Opacity", "Vibration"};
-	const char* vals[4] = {modeN[uiPadMode % 3], sizeN[uiPadSize % 3], opN[uiPadOpacity % 3], uiPadHaptic ? "On" : "Off"};
-	for (int r = 0; r < 4; ++r) {
-		int y = CONTENT_Y + 29 + r * 27;
-		gPanel(12, y, 296, 24, C_PANEL_T, C_PANEL_B, C_GOLD_DIM);
-		gTextShadow(21, y + 7, labels[r], 1, C_TEXT);
-		gTextRight(299, y + 7, vals[r], 1, C_GOLD);
+	char spd[8];
+	snprintf(spd, sizeof(spd), "%dx", v->speedMul);
+	const char* labels[SETTINGS_ROWS];
+	const char* vals[SETTINGS_ROWS];
+	bool dim[SETTINGS_ROWS] = {false};
+	int n = 0;
+	if (v->optsPage == 0) {
+		labels[0] = "Top screen";      vals[0] = v->topScale == TOP_FILL ? "Fill (16:9)" : "1x";
+		labels[1] = "Touch buttons";   vals[1] = modeN[uiPadMode % 3];
+		labels[2] = "Button size";     vals[2] = sizeN[uiPadSize % 3];
+		labels[3] = "Button opacity";  vals[3] = opN[uiPadOpacity % 3];
+		labels[4] = "Vibration";       vals[4] = uiPadHaptic ? "On" : "Off";
+		labels[5] = "Fast-forward speed"; vals[5] = spd;
+		n = 6;
+	} else {
+		labels[0] = "Swap the two screens"; vals[0] = uiShowSwap ? "Swap" : "needs 2 displays"; dim[0] = !uiShowSwap;
+		labels[1] = "Export saves";    vals[1] = "to a .zip";
+		labels[2] = "Import saves";    vals[2] = "from a .zip";
+		labels[3] = "Controls list";   vals[3] = "Open";
+		n = 4;
 	}
-	gText(14, CONTENT_Y + 29 + 4 * 27 + 4, "Auto: hidden while a controller is connected", 0, C_DIM);
+	for (int r = 0; r < n; ++r) {
+		int y = SETTINGS_Y + r * SETTINGS_STEP;
+		gPanel(12, y, 296, SETTINGS_ROW_H, C_PANEL_T, C_PANEL_B, dim[r] ? RGB(70, 76, 100) : C_GOLD_DIM);
+		gTextShadow(21, y + 6, labels[r], 1, dim[r] ? C_DIM : C_TEXT);
+		gTextRight(299, y + 6, vals[r], 1, dim[r] ? C_DIM : C_GOLD);
+	}
+	if (v->optsPage == 1) {
+		gText(14, SETTINGS_Y + 4 * SETTINGS_STEP + 2, "Saves: states, autosave, maps, settings (no ROMs).", 0, C_DIM);
+		gText(14, SETTINGS_Y + 4 * SETTINGS_STEP + 13, "Restart the app after importing.", 0, C_DIM);
+	}
 }
 
 static void hotkeysView(void) {
@@ -1325,12 +1370,12 @@ static void itemsTab(const GsState* st, const UiView* v) {
 static void menuTab(const UiView* v) {
 	for (int i = 0; i < MB_COUNT; ++i) {
 		if (i == MB_HOTKEYS && !uiShowHotkeys) continue;
-		if (i == MB_SWAP && !uiShowSwap && !uiShowTouchOpts) continue;
+		if (i == MB_SWAP && !uiShowTouchOpts) continue;
 		int x = MENU_BX(i), y = MENU_BY(i);
 		bool on = (i == MB_FAST && v->fastForward) || (i == MB_HIDEMENU && v->hideMenus) || (i == MB_AUTOSAVE && v->autoSave) || (i == MB_MUTE && v->muteSlow);
 		gPanel(x, y, MENU_W, MENU_H, on ? C_ACTIVE_T : C_PANEL_T, on ? C_ACTIVE_B : C_PANEL_B, on ? C_GOLD : C_GOLD_DIM);
 		const char* val = i == MB_FAST ? (v->fastForward ? "On" : "Off") : i == MB_SCALE ? (v->topScale == TOP_FILL ? "Fill" : "1x") : i == MB_HIDEMENU ? (v->hideMenus ? "On" : "Off") : i == MB_AUTOSAVE ? (v->autoSave ? "On" : "Off") : i == MB_MUTE ? (v->muteSlow ? "On" : "Off") : i == MB_SPEED ? (const char* const[]) {"2x", "2x", "3x", "4x"}[v->speedMul < 2 ? 1 : v->speedMul > 4 ? 3 : v->speedMul - 1] : "";
-		gTextShadow(x + 9, y + 6, i == MB_SWAP && !uiShowSwap ? "Touch buttons" : menuLabels[i], 1, C_TEXT);
+		gTextShadow(x + 9, y + 6, i == MB_SWAP ? "Settings" : menuLabels[i], 1, C_TEXT);
 		if (val[0]) gTextRight(x + MENU_W - 9, y + 6, val, 1, C_GOLD);
 	}
 }
@@ -1506,7 +1551,7 @@ void uiDraw(uint16_t* framebuffer, const GsState* st, const UiView* v) {
 		return;
 	}
 	if (v->showTouchOpts) {
-		touchOptsView();
+		touchOptsView(v);
 		footer(st);
 		return;
 	}

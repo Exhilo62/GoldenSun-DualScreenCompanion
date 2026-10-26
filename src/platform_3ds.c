@@ -201,6 +201,9 @@ bool plAudioSkipped(void) { return audioSkipped; }
 
 uint64_t plTicks(void) { return svcGetSystemTick(); }
 
+void plBackup(int op) { (void) op; }
+bool plBackupPoll(char* msg, size_t n, bool* restart) { (void) msg; (void) n; (void) restart; return false; }
+void plRequestQuit(void) {}
 void plSwapScreens(void) {}
 
 void plPollInput(PlInput* in) {

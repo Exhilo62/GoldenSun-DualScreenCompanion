@@ -163,7 +163,7 @@ static void loadSettings(UiView* ui) {
 			ui->autoSave = b[3] == 1;
 		}
 		if (n >= 6) {
-			ui->speedMul = b[4] >= 2 && b[4] <= 4 ? b[4] : 3;
+			ui->speedMul = b[4] >= 2 && b[4] <= uiMaxSpeed ? b[4] : 3;
 			ui->muteSlow = b[5] == 1;
 		}
 		ui->fastForward = false;
@@ -404,10 +404,11 @@ bool appProcessJob(Job* j, uint16_t* botFb) {
 
 // Leaving the foreground (Android): the process may be killed without notice, so everything is written now. Called by the platform from the
 // emulation thread, between frames (from inside the event poll).
+static bool skipSaves;   // after importing saves: nothing may be written over them on the way out
 static struct mCore* saveCore;
 static UiView* saveUi;
 void appSaveNow(void) {
-	if (!saveCore || !saveUi) return;
+	if (!saveCore || !saveUi || skipSaves) return;
 	if (saveUi->autoSave) writeState(saveCore, autoPath);
 	if (bestDirty()) bestSave(bestPath);
 	if (!plTwoCore() && mapDirty()) mapSave(mapsPath);
@@ -537,6 +538,16 @@ int appRun(void) {
 		if (uo.rewind) { rewindBack(core, &ui); macroN = macroI = 0; act.phase = 0; ui.pickActive = false; ui.eqActive = false; }
 		if (uo.loadState) loadState(core, &ui);
 		if (uo.swapScreens) plSwapScreens();
+		if (uo.backup) { if (uo.backup == 1) appSaveNow(); plBackup(uo.backup); }
+		{
+			char bm[96];
+			bool restart = false;
+			if (plBackupPoll(bm, sizeof(bm), &restart)) {
+				uiToast(&ui, bm);
+				ui.toastFrames = 600;
+				if (restart) { skipSaves = true; plRequestQuit(); }
+			}
+		}
 		if (uo.clearMap) { pendingClear = true; uiToast(&ui, "Map cleared"); }
 
 		// ---- touch actions through the game's own menus ----
@@ -1014,12 +1025,14 @@ int appRun(void) {
 
 	appJob.doMap = appJob.clearMap = appJob.forgetMap = appJob.saveMap = false;
 	saveCore = NULL;
-	appJob.finalSave = true;   // the worker owns the map: it writes the final copy
+	appJob.finalSave = !skipSaves;   // the worker owns the map: it writes the final copy
 	plJobFinish(&appJob);
 	bgWriteFlush();
-	if (bestDirty()) bestSave(bestPath);
-	if (!plTwoCore()) { if (mapDirty()) mapSave(mapsPath); }
-	if (ui.autoSave) writeState(core, autoPath);
+	if (!skipSaves) {
+		if (bestDirty()) bestSave(bestPath);
+		if (!plTwoCore()) { if (mapDirty()) mapSave(mapsPath); }
+		if (ui.autoSave) writeState(core, autoPath);
+	}
 	core->deinit(core);
 	plExit();
 	return 0;

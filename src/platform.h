@@ -36,6 +36,11 @@ void plFatal(const char* msg);          // show a message to the player (the app
 bool plChooseGame(GsGameId* out);       // which game to run (a picker on the 3DS); false = nothing to run
 
 void plPollInput(PlInput* in);
+// Backing up the saves (Android): plBackup(1) asks where to write a .zip of the saves, plBackup(2) asks which .zip to restore. plBackupPoll returns true
+// once when a finished job left a message for the player; *restart is set after a successful import (the app must then close without saving over it).
+void plBackup(int op);
+bool plBackupPoll(char* msg, size_t n, bool* restart);
+void plRequestQuit(void);
 void plSwapScreens(void);               // dual-screen devices: exchange what the two displays show (the Menu tab's "Swap screens"); nothing on the 3DS
 
 // Audio: plAudioInit connects the core's sound output (before core->reset). Muting is asked for by the loop every frame.

@@ -24,6 +24,14 @@ import android.view.WindowManager;
 import org.libsdl.app.SDLActivity;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.OutputStream;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 
@@ -195,6 +203,125 @@ public class MainActivity extends SDLActivity {
         });
     }
 
+    // ---- save backup ------------------------------------------------------------------------------------------------------
+    // Export: the app's saves (everything in its data folder except ROMs and temporary files) go into a .zip the player picks the place for.
+    // Import: a .zip made by Export is unpacked over the data folder (never ROMs, never paths that leave the folder); the app then closes without saving.
+    private static final int REQ_EXPORT = 4712, REQ_IMPORT = 4713;
+    private static volatile int backupStatus;          // 0 idle, 1 working, 2 finished (message waiting), 3 finished + restart
+    private static volatile String backupText = "";
+
+    private File dataDir() {
+        File d = getExternalFilesDir(null);
+        return d != null ? d : getFilesDir();
+    }
+
+    public static void exportSaves() {
+        final MainActivity a = (MainActivity) SDLActivity.getContext();
+        if (a == null) return;
+        backupStatus = 1;
+        a.runOnUiThread(new Runnable() {
+            @Override public void run() {
+                Intent i = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                i.addCategory(Intent.CATEGORY_OPENABLE);
+                i.setType("application/zip");
+                i.putExtra(Intent.EXTRA_TITLE, "GoldenSunDualScreen-saves-" + new SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(new Date()) + ".zip");
+                try { a.startActivityForResult(i, REQ_EXPORT); } catch (RuntimeException e) { backupText = "Could not open the file picker"; backupStatus = 2; }
+            }
+        });
+    }
+
+    public static void importSaves() {
+        final MainActivity a = (MainActivity) SDLActivity.getContext();
+        if (a == null) return;
+        backupStatus = 1;
+        a.runOnUiThread(new Runnable() {
+            @Override public void run() {
+                Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                i.addCategory(Intent.CATEGORY_OPENABLE);
+                i.setType("*/*");
+                try { a.startActivityForResult(i, REQ_IMPORT); } catch (RuntimeException e) { backupText = "Could not open the file picker"; backupStatus = 2; }
+            }
+        });
+    }
+
+    /** 0 = nothing to report, 1 = a message is waiting, 2 = a message is waiting and the app should close (saves were restored). Reading it clears it. */
+    public static int backupResult() {
+        int s = backupStatus;
+        if (s < 2) return 0;
+        return s == 3 ? 2 : 1;
+    }
+
+    public static String backupMessage() {
+        String t = backupText;
+        backupStatus = 0;
+        return t;
+    }
+
+    private void addFiles(ZipOutputStream z, File dir, String prefix, int[] count) throws Exception {
+        File[] list = dir.listFiles();
+        if (list == null) return;
+        for (File f : list) {
+            String n = prefix + f.getName();
+            if (f.isDirectory()) { addFiles(z, f, n + "/", count); continue; }
+            String low = f.getName().toLowerCase(Locale.US);
+            if (low.endsWith(".gba") || low.endsWith(".tmp") || low.endsWith(".zip")) continue;
+            z.putNextEntry(new ZipEntry(n));
+            FileInputStream in = new FileInputStream(f);
+            byte[] buf = new byte[1 << 16];
+            int k;
+            while ((k = in.read(buf)) > 0) z.write(buf, 0, k);
+            in.close();
+            z.closeEntry();
+            ++count[0];
+        }
+    }
+
+    private void doExport(Uri uri) {
+        try {
+            OutputStream os = getContentResolver().openOutputStream(uri);
+            if (os == null) throw new RuntimeException("no stream");
+            ZipOutputStream z = new ZipOutputStream(os);
+            int[] count = new int[1];
+            addFiles(z, dataDir(), "", count);
+            z.close();
+            backupText = "Saved " + count[0] + " files to the zip";
+            backupStatus = 2;
+        } catch (Exception e) {
+            backupText = "Export failed";
+            backupStatus = 2;
+        }
+    }
+
+    private void doImport(Uri uri) {
+        try {
+            File root = dataDir();
+            String rootPath = root.getCanonicalPath() + File.separator;
+            ZipInputStream z = new ZipInputStream(getContentResolver().openInputStream(uri));
+            ZipEntry e;
+            int count = 0;
+            byte[] buf = new byte[1 << 16];
+            while ((e = z.getNextEntry()) != null) {
+                String name = e.getName();
+                if (e.isDirectory() || name.toLowerCase(Locale.US).endsWith(".gba")) continue;
+                File out = new File(root, name);
+                if (!out.getCanonicalPath().startsWith(rootPath)) continue;   // never write outside the data folder
+                File parent = out.getParentFile();
+                if (parent != null) parent.mkdirs();
+                FileOutputStream fo = new FileOutputStream(out);
+                int k;
+                while ((k = z.read(buf)) > 0) fo.write(buf, 0, k);
+                fo.close();
+                ++count;
+            }
+            z.close();
+            if (count == 0) { backupText = "That zip has no saves in it"; backupStatus = 2; }
+            else { backupText = "Restored " + count + " files. Closing: open the app again"; backupStatus = 3; }
+        } catch (Exception e) {
+            backupText = "Import failed";
+            backupStatus = 2;
+        }
+    }
+
     /** A short tick for on-screen buttons (called from native code). */
     public static void haptic() {
         final MainActivity a = (MainActivity) SDLActivity.getContext();
@@ -209,6 +336,13 @@ public class MainActivity extends SDLActivity {
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, final Intent data) {
+        if (requestCode == REQ_EXPORT || requestCode == REQ_IMPORT) {
+            if (resultCode != RESULT_OK || data == null || data.getData() == null) { backupStatus = 0; return; }
+            final Uri u = data.getData();
+            final boolean exporting = requestCode == REQ_EXPORT;
+            new Thread(new Runnable() { @Override public void run() { if (exporting) doExport(u); else doImport(u); } }).start();
+            return;
+        }
         if (requestCode != REQ_ROM) { super.onActivityResult(requestCode, resultCode, data); return; }
         if (resultCode != RESULT_OK || data == null || data.getData() == null) { pickState = 0; return; }
         final Uri uri = data.getData();

@@ -482,7 +482,54 @@ static void loadPadLook(void) {
 }
 
 static bool swapPressed;
-void plSwapScreens(void) { swapPressed = true; }   // handled on the next poll, like the W key
+void plSwapScreens(void) { swapPressed = true; }
+void plRequestQuit(void) { quitRequested = true; }
+
+#ifdef __ANDROID__
+static int jniStaticInt0(const char* name) {
+	JNIEnv* env = SDL_AndroidGetJNIEnv();
+	jobject act = SDL_AndroidGetActivity();
+	jclass cls = (*env)->GetObjectClass(env, act);
+	jmethodID m = (*env)->GetStaticMethodID(env, cls, name, "()I");
+	int v = m ? (*env)->CallStaticIntMethod(env, cls, m) : 0;
+	(*env)->DeleteLocalRef(env, cls);
+	(*env)->DeleteLocalRef(env, act);
+	return v;
+}
+
+void plBackup(int op) {
+	JNIEnv* env = SDL_AndroidGetJNIEnv();
+	jobject act = SDL_AndroidGetActivity();
+	jclass cls = (*env)->GetObjectClass(env, act);
+	jmethodID m = (*env)->GetStaticMethodID(env, cls, op == 1 ? "exportSaves" : "importSaves", "()V");
+	if (m) (*env)->CallStaticVoidMethod(env, cls, m);
+	(*env)->DeleteLocalRef(env, cls);
+	(*env)->DeleteLocalRef(env, act);
+}
+
+bool plBackupPoll(char* msg, size_t n, bool* restart) {
+	int st = jniStaticInt0("backupResult");   // 0 nothing to report, 1 message, 2 message + restart
+	if (!st) return false;
+	JNIEnv* env = SDL_AndroidGetJNIEnv();
+	jobject act = SDL_AndroidGetActivity();
+	jclass cls = (*env)->GetObjectClass(env, act);
+	jmethodID m = (*env)->GetStaticMethodID(env, cls, "backupMessage", "()Ljava/lang/String;");
+	jstring js = m ? (jstring) (*env)->CallStaticObjectMethod(env, cls, m) : NULL;
+	if (js) {
+		const char* c = (*env)->GetStringUTFChars(env, js, NULL);
+		snprintf(msg, n, "%s", c ? c : "");
+		if (c) (*env)->ReleaseStringUTFChars(env, js, c);
+		(*env)->DeleteLocalRef(env, js);
+	} else snprintf(msg, n, "%s", "Done");
+	(*env)->DeleteLocalRef(env, cls);
+	(*env)->DeleteLocalRef(env, act);
+	*restart = st == 2;
+	return true;
+}
+#else
+void plBackup(int op) { (void) op; }
+bool plBackupPoll(char* msg, size_t n, bool* restart) { (void) msg; (void) n; (void) restart; return false; }
+#endif   // handled on the next poll, like the W key
 static bool backPressed;
 static float tapX, tapY;
 static int tapHold;
@@ -547,7 +594,7 @@ void plPollInput(PlInput* in) {
 	}
 	flipWas = flipNow;
 	static bool swapWas;
-	uiShowTouchOpts = !dualScreen;   // one display: the Menu tab offers the touch-button options in that slot
+	uiShowTouchOpts = true;          // the Menu tab has a Settings panel on this platform
 	uiShowSwap = dualScreen;   // the Menu tab shows "Swap screens" while two displays are in use
 	if (((swapKey && !swapWas) || swapPressed) && dualScreen) {
 		swapPressed = false;
@@ -937,6 +984,7 @@ bool plInit(void) {
 	botTex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_RGB565, SDL_TEXTUREACCESS_STREAMING, GFX_W, GFX_H);
 	SDL_SetTextureScaleMode(topTex, SDL_ScaleModeNearest);
 	SDL_SetTextureScaleMode(botTex, SDL_ScaleModeNearest);
+	uiMaxSpeed = 16;   // phones and PCs can emulate far faster than a 3DS: the Settings panel offers up to 16x
 	loadPadLook();
 	{
 		FILE* sf = fopen(swapPath(), "r");

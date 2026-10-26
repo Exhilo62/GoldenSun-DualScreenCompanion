@@ -20,7 +20,8 @@ enum { TOP_1X, TOP_FILL, TOP_MODES };  // 1:1 centred | stretched to the full 40
 typedef struct {
 	int tab;
 	int itemChar;          // whose inventory the ITEMS tab shows
-	bool showTouchOpts;    // the touch-button options panel replaces the tab content (Android and desktop builds only)
+	bool showTouchOpts;    // the settings panel replaces the tab content (Android and desktop builds only)
+	int optsPage;          // which page of the settings panel
 	unsigned padOptsTick;  // bumped whenever an option changes so the panel is redrawn
 	bool showHotkeys;      // the controls / hotkeys list replaces the tab content (Android and desktop builds only)
 	bool showKeys;         // the touch keyboard for the Lost Age password screen
@@ -93,7 +94,8 @@ typedef struct {
 	int djinnElem, djinnRow, djinnBit;   // Djinn tab: tap a Djinn (element 0..3, row in the game's list, bit in the owned mask), else djinnElem -1
 	int kbKey;             // touch keyboard: key tapped (see uiKeyTarget), or -1
 	bool rewind;           // Menu tab: step back a few seconds
-	bool swapScreens;      // Menu tab: "Swap screens" tapped (dual-screen devices only)
+	bool swapScreens;      // Settings: "Swap screens" tapped (dual-screen devices only)
+	int backup;            // Settings: 1 = export the saves, 2 = import them (Android)
 	int equipChar, equipIndex;   // Items tab: tap on a bag item = equip it. Member 0..3 and the item's position in that member's list (game order), or -1
 } UiOutput;
 
@@ -118,7 +120,8 @@ extern bool uiShowHotkeys;
 extern bool uiShowSwap;
 // Touch-button options (Android / desktop): set by the platform, edited in the Menu tab's "Touch buttons" panel (which shares the slot of "Swap screens"
 // and is shown while only one display is in use).
-extern bool uiShowTouchOpts;
+extern bool uiShowTouchOpts;   // set by platforms that have the Settings panel (Android, desktop)
+extern int uiMaxSpeed;         // highest fast-forward multiplier on this platform (3DS 4; Android / desktop 16)
 extern int uiPadMode;      // 0 Auto (hidden while a controller is connected), 1 always shown, 2 always hidden
 extern int uiPadSize;      // 0 small, 1 medium, 2 large
 extern int uiPadOpacity;   // 0 low, 1 medium, 2 high
