@@ -207,7 +207,23 @@ static bool writeState(struct mCore* core, const char* path) {
 static volatile bool pendingForget, pendingClear;
 // Touch actions that drive the game's own menus (equip / use an item, cast field Psynergy, flip a Djinn). One at a time.
 enum { ACT_ITEM = 1, ACT_PSY, ACT_DJINN, ACT_LOAD };
-#define PREVIEW_CLEAR() do { for (int pi_ = 0; pi_ < 3; ++pi_) core->busWrite32(core, gsRam()->eqPreview + 4u * (unsigned) pi_, 0xFFFFFFFFu); } while (0)
+// The equip stat preview (ATK, DEF, AGI words). Golden Sun: a fixed address. The Lost Age: a heap object found through a pointer.
+static uint32_t previewBase(struct mCore* core) {
+	const GsRam* r = gsRam();
+	if (!r->eqPreview) return 0;
+	if (!r->eqPreviewIndirect) return r->eqPreview;
+	uint32_t p = core->busRead32(core, r->eqPreview);
+	return p >= 0x02000000u && p < 0x0203FFE0u ? p + 8 : 0;
+}
+static uint32_t previewRead(struct mCore* core, int i) {
+	uint32_t b = previewBase(core);
+	return b ? core->busRead32(core, b + 4u * (unsigned) i) : 0xFFFFFFFFu;
+}
+static void previewClear(struct mCore* core) {   // only where the preview has a fixed address: a moved pointer must never be written through
+	uint32_t b = gsRam()->eqPreviewIndirect ? 0 : previewBase(core);
+	if (b) for (int i = 0; i < 3; ++i) core->busWrite32(core, b + 4u * (unsigned) i, 0xFFFFFFFFu);
+}
+#define PREVIEW_CLEAR() previewClear(core)
 static struct {
 	int kind;
 	int phase;            // 0 idle; 1 walking to an item; 2 waiting for a target tap; 3 final presses; 4 closing the menus; 5 target prompt is up
@@ -520,6 +536,7 @@ int appRun(void) {
 		}
 		if (uo.rewind) { rewindBack(core, &ui); macroN = macroI = 0; act.phase = 0; ui.pickActive = false; ui.eqActive = false; }
 		if (uo.loadState) loadState(core, &ui);
+		if (uo.swapScreens) plSwapScreens();
 		if (uo.clearMap) { pendingClear = true; uiToast(&ui, "Map cleared"); }
 
 		// ---- touch actions through the game's own menus ----
@@ -589,7 +606,7 @@ int appRun(void) {
 				for (int i = 0; i < act.index / 5; ++i) macroPress(GBA_KEY_RIGHT, preview ? 3 : 4, preview ? 16 : 10);   // five items per page, pages flip with Right
 				for (int i = 0; i < act.index % 5; ++i) macroPress(GBA_KEY_DOWN, preview ? 3 : 4, preview ? 5 : 10);   // faster than hold 3 / gap 5 and the game drops presses
 				if (preview) {   // gear shows its stat change in the list: read it and let the player confirm
-					if (gsRam()->djinnCount <= 7) for (int i = 0; i < 3; ++i) core->busWrite32(core, gsRam()->eqPreview + 4u * (unsigned) i, 0xFFFFFFFFu);   // the Lost Age only rewrites it when the cursor lands, so its own value is read as is
+					if (gsRam()->djinnCount <= 7) previewClear(core);   // the Lost Age only rewrites it when the cursor lands, so its own value is read as is
 					macroPress(0, 0, gsRam()->djinnCount > 7 ? 90 : act.index >= 5 ? 20 : act.index ? 8 : 22);   // the game refreshes the preview about 4 frames after the cursor moves
 					act.phase = 8;
 				} else {
@@ -675,7 +692,7 @@ int appRun(void) {
 				act.lastIdx = 31 - __builtin_clz(act.mask);
 				macroOpenMenu(MENU_ITEMS, act.member, gs.menuOpen);
 				PREVIEW_CLEAR();
-				macroPress(0, 0, 22);
+				macroPress(0, 0, gsRam()->djinnCount > 7 ? 90 : 22);   // The Lost Age takes about 60-90 frames to compute the preview for the highlighted item (Golden Sun: 4)
 				act.phase = 21;
 			}
 		} else if (act.phase == 21 && macroI >= macroN) {   // the highlighted bag item's stat preview: remember the best gain
@@ -683,7 +700,7 @@ int appRun(void) {
 			if ((act.mask >> act.scanIdx) & 1) {
 				int slot = slotOfShown(pm, act.scanIdx), nw[3];
 				bool ok = slot >= 0 && !pm->items[slot].equipped;
-				for (int i = 0; i < 3; ++i) { nw[i] = (int) (int32_t) memRead(core, gsRam()->eqPreview + 4u * (unsigned) i, 4); if (nw[i] < 0 || nw[i] > 9999) ok = false; }
+				for (int i = 0; i < 3; ++i) { nw[i] = (int) (int32_t) previewRead(core, i); if (nw[i] < 0 || nw[i] > 9999) ok = false; }
 				if (ok) {
 					int score = (nw[0] - pm->atk) + (nw[1] - pm->def) + (nw[2] - pm->agi);
 					if (score > 0) act.newCand |= 1u << act.scanIdx;
@@ -697,7 +714,7 @@ int appRun(void) {
 				macroPress(GBA_KEY_DOWN, 3, 5);
 				if (act.scanIdx % 5 == 4) { macroPress(GBA_KEY_RIGHT, 3, 12); }   // Down wrapped to the top of the page; Right flips to the next
 				++act.scanIdx;
-				if ((act.mask >> act.scanIdx) & 1) macroPress(0, 0, 3);   // the game needs about 4 frames to refresh the preview
+				if ((act.mask >> act.scanIdx) & 1) macroPress(0, 0, gsRam()->djinnCount > 7 ? 90 : 3);   // the game needs about 4 frames to refresh the preview (The Lost Age: 60-90)
 			} else {
 				act.mask = act.newCand;   // the improvements found now are the only candidates worth another look
 				act.phase = 22;
@@ -722,7 +739,7 @@ int appRun(void) {
 		} else if (act.phase == 8 && macroI >= macroN) {   // the item is highlighted: did the game compute a stat change for it?
 			int nw[3];
 			bool ok = true;
-			for (int i = 0; i < 3; ++i) { nw[i] = (int) (int32_t) memRead(core, gsRam()->eqPreview + 4u * (unsigned) i, 4); if (nw[i] < 0 || nw[i] > 9999) ok = false; }
+			for (int i = 0; i < 3; ++i) { nw[i] = (int) (int32_t) previewRead(core, i); if (nw[i] < 0 || nw[i] > 9999) ok = false; }
 			const GsMember* pm = &gs.party[act.member];
 			if (ok && gsRam()->djinnCount > 7 && nw[0] == pm->atk && nw[1] == pm->def && nw[2] == pm->agi) ok = false;   // the Lost Age rewrites the current stats for anything that is not new gear
 			if (ok) {

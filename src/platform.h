@@ -36,6 +36,7 @@ void plFatal(const char* msg);          // show a message to the player (the app
 bool plChooseGame(GsGameId* out);       // which game to run (a picker on the 3DS); false = nothing to run
 
 void plPollInput(PlInput* in);
+void plSwapScreens(void);               // dual-screen devices: exchange what the two displays show (the Menu tab's "Swap screens"); nothing on the 3DS
 
 // Audio: plAudioInit connects the core's sound output (before core->reset). Muting is asked for by the loop every frame.
 void plAudioInit(struct mCore* core);

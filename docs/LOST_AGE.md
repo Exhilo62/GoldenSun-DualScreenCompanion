@@ -102,12 +102,15 @@ Not found / not trusted yet:
 | Psynergy list, tap to cast ("Use Cure on whom?") | works |
 | Djinn tab, tap Set / Standby, Djinn sets (All Set, All Standby, 3 slots) | works (sets overlay opens; Save / Apply use the same column-walking as single Djinn) |
 | Items list, icons, long-press description | works |
-| Equip preview, "Equip best" | button runs and leaves the menu clean; a bag with better gear still needs a real-console check |
+| Equip preview, "Equip best" | **fixed Oct 26**: the preview now reads (see below); on a saved state with the best sword, tunic and boots in the bag, the scan picks a better item; not yet checked on a console |
 | Map tab | **now drawn from the ROM** (Yallam, Anemos Sanctum checked), see MAP_DATA.md; the world map still uses the stitched map |
 | Battle panel (phases, enemy HP/ATK, turn order, descriptions) | works (earlier verification) |
-| Repeat round, Message log, Bestiary | same code as Golden Sun; not exercised in a Lost Age fight in this audit |
+| Repeat round, Message log, Bestiary | same code as Golden Sun; **Repeat round still not exercised in a Lost Age fight** (scripted fights from a saved state kept ending or stalling before a second round menu) |
 | Save slots, autosave, rewind, top-screen modes, "Menus below", "Mute if slow" | shared code, unaffected |
 | Password keyboard | Lost Age only |
 
 ## Party list in the opening (Oct 25)
 A new game without a password leaves the save-data party list (`0x0200001C`) all zeros until the opening is over, so reading it gave four copies of record 0 (Isaac, Lv28, the default clear-data party). The game keeps its active party in a second copy at `0x02000458` (8 entries, the first four are the party; in every good state it matches the save-data list), and in the opening that copy is the real list (Felix, Jenna, Mia at the Venus Lighthouse; Jenna alone once she leads). `gs_state.c` now takes the leading distinct entries of the save-data list and, when that list is empty or repeats an entry, the leading distinct entries of the second copy (`GsRam.partyOrderAlt`). Found by running a new game on the desktop build (scripted keys) and diffing memory against saved states; checked on the desktop build at the Lighthouse (cards match the game's own menu) and with selftest (110/110).
+
+## Equip best / item preview (Oct 26)
+Symptom: Equip best did nothing in The Lost Age even with better gear in the bag. The scan reads the stat preview (ATK, DEF, AGI as u32 words) that the game shows beside the highlighted item. Golden Sun keeps it at a fixed address; The Lost Age keeps it in a heap object whose address changes with the state (`0x02039254`, `0x02038CF8`, `0x0203950C` in four saves), and fills it only about 60-90 frames after the cursor lands. Fixes: `GsRam.eqPreviewIndirect` (the address is a pointer at `0x03000000`, the words start 8 bytes in, never written through), longer waits in the scan (`app.c`, `djinnCount > 7` branches). Test state `taf_unequipped.state` made by taking Sol Blade, Erinyes Tunic and Dragon Boots off through the game's own menu; the scan then read +300 ATK for the sword and the candidates were found.

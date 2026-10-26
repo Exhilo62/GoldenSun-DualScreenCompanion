@@ -91,6 +91,7 @@ typedef struct {
 	int djinnElem, djinnRow, djinnBit;   // Djinn tab: tap a Djinn (element 0..3, row in the game's list, bit in the owned mask), else djinnElem -1
 	int kbKey;             // touch keyboard: key tapped (see uiKeyTarget), or -1
 	bool rewind;           // Menu tab: step back a few seconds
+	bool swapScreens;      // Menu tab: "Swap screens" tapped (dual-screen devices only)
 	int equipChar, equipIndex;   // Items tab: tap on a bag item = equip it. Member 0..3 and the item's position in that member's list (game order), or -1
 } UiOutput;
 
@@ -111,6 +112,8 @@ void uiUpdate(UiView* v, const GsState* st, bool down, int x, int y, UiOutput* o
 bool uiShowsMap(const UiView* v);
 // Set by the platform layers that have hotkeys (Android, desktop): adds a "Controls" button to the Menu tab. The 3DS build leaves it off.
 extern bool uiShowHotkeys;
+// Set by the platform while two physical displays are in use: adds a "Swap screens" button to the Menu tab.
+extern bool uiShowSwap;
 void uiToast(UiView* v, const char* msg);
 // Renders into a 320x240 RGB565 framebuffer in 3DS layout: fb[x * 240 + (239 - y)].
 void uiDraw(uint16_t* fb, const GsState* st, const UiView* v);

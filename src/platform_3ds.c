@@ -201,6 +201,8 @@ bool plAudioSkipped(void) { return audioSkipped; }
 
 uint64_t plTicks(void) { return svcGetSystemTick(); }
 
+void plSwapScreens(void) {}
+
 void plPollInput(PlInput* in) {
 	hidScanInput();
 	u32 held = hidKeysHeld();

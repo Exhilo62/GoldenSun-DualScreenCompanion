@@ -26,7 +26,7 @@ No ROMs are included. You need your own dumps.
 ### Known limitations
 - **Old 3DS (and emulators at default speed) run slowly**, roughly 25-35 fps, and the automatic helpers may not be able to fix it. In Azahar use New 3DS mode with the CPU clock at about 300%: see `docs/EMULATORS.md`.
 - Old 3DS cannot reach full speed; fast forward cannot beat what the console can emulate.
-- The Lost Age has the same tabs as Golden Sun; its world map is still the stitched live map, and the maps are only drawn from the ROM for the USA / Europe cartridges.
+- The Lost Age has the same tabs as Golden Sun; its areas are drawn from the ROM (USA / Europe cartridges) but its world map is still the stitched live map.
 - Repeat round, Djinn set Save / Apply / All Set and Equip best on real hardware are lightly tested. The Android app has not been run on a real device yet.
 
 ### Reporting

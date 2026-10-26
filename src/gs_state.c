@@ -24,7 +24,7 @@ const GsRam gsRamGs1 = {GS_AREA_A, GS_CAM_X, GS_CAM_Y, GS_PLAYER_X, GS_PLAYER_Y,
 // description 0x03007D34, target name 0x03007CF4, ally target index 0x03007CC0 (party order; depth 2 with the flag at 255), highlighted command text 0x02035708; see docs/LOST_AGE.md. Camera scroll is at 0x0300112C/2E (leads the picture by one frame; camLag); 0x020322F6/FE is a smoother 1 px/frame counter that does NOT match the picture. The RAM player
 // coordinates (0x03001124/26, 0x02030ECA/CE) are not used, so playerX/playerY are 0 here and the reader derives the world position from camera + leader sprite.
 const GsRam gsRamTla = {0x02000420u, 0x0300112Cu, 0x0300112Eu, 0, 0, 0x02000250u, 0x02000520u, 0x020308C8u, 0x02000060u,
-	0, 0x0200001Cu, 0x03007E48u, 0, 0x03007DD3u, 0x03007DB8u, 0, 0x03007D34u, 0x03007CC0u, 0, true, 18, 0x080B2364u, 0x02039238u, 0x080B12C8u, 0x02031E40u, false, 0x02035708u, 0x03007CF4u, 1, 0x02000458u};
+	0, 0x0200001Cu, 0x03007E48u, 0, 0x03007DD3u, 0x03007DB8u, 0, 0x03007D34u, 0x03007CC0u, 0, true, 18, 0x080B2364u, 0x03000000u, 0x080B12C8u, 0x02031E40u, false, 0x02035708u, 0x03007CF4u, 1, true, 0x02000458u};
 static const GsRam* ram = &gsRamGs1;
 void gsSetRam(const GsRam* r) { ram = r; }
 const GsRam* gsRam(void) { return ram; }

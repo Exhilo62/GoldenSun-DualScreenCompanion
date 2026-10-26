@@ -45,6 +45,7 @@ static const uint16_t tabAccent[TAB_COUNT] = {RGB(236, 188, 68), RGB(80, 170, 25
 #define TAB_Y 3
 #define TAB_H 44
 bool uiShowHotkeys;
+bool uiShowSwap;
 #define CONTENT_Y 50
 #define CONTENT_H 158
 #define FOOT_Y 210
@@ -72,8 +73,8 @@ static int logTotalHeight(void);
 
 // Menu tab buttons: two columns of five. "Fast forward" and "FF speed" are hidden (a 3DS cannot emulate fast enough for them to be useful): they
 // are listed after MB_COUNT so they are neither drawn nor tapped; holding Y / ZR still speeds up as far as the console allows.
-enum { MB_SLOTS, MB_AUTOSAVE, MB_MUTE, MB_SCALE, MB_HIDEMENU, MB_LOG, MB_BEST, MB_REWIND, MB_HOTKEYS, MB_COUNT, MB_CLEARMAP, MB_FAST, MB_SPEED };   // Clear map, Fast forward and FF speed are hidden (listed after MB_COUNT: neither drawn nor tapped)
-static const char* const menuLabels[MB_COUNT] = {"Save slots", "Autosave", "Mute if slow", "Top screen", "Menus below", "Message log", "Bestiary", "Rewind 5s", "Controls"};
+enum { MB_SLOTS, MB_AUTOSAVE, MB_MUTE, MB_SCALE, MB_HIDEMENU, MB_LOG, MB_BEST, MB_REWIND, MB_HOTKEYS, MB_SWAP, MB_COUNT, MB_CLEARMAP, MB_FAST, MB_SPEED };   // Clear map, Fast forward and FF speed are hidden (listed after MB_COUNT: neither drawn nor tapped)
+static const char* const menuLabels[MB_COUNT] = {"Save slots", "Autosave", "Mute if slow", "Top screen", "Menus below", "Message log", "Bestiary", "Rewind 5s", "Controls", "Swap screens"};
 #define MENU_W 150
 #define MENU_H 28
 #define MENU_Y0 56
@@ -453,6 +454,7 @@ void uiUpdate(UiView* v, const GsState* st, bool down, int x, int y, UiOutput* o
 	if (v->tab == TAB_MENU) {
 		for (int i = 0; i < MB_COUNT; ++i) {
 			if (i == MB_HOTKEYS && !uiShowHotkeys) continue;
+			if (i == MB_SWAP && !uiShowSwap) continue;
 			if (!inRect(x, y, MENU_BX(i), MENU_BY(i), MENU_W, MENU_H)) continue;
 			switch (i) {
 			case MB_FAST: v->fastForward = !v->fastForward; break;
@@ -465,6 +467,7 @@ void uiUpdate(UiView* v, const GsState* st, bool down, int x, int y, UiOutput* o
 			case MB_LOG: v->showLog = true; v->logScroll = 0; break;
 			case MB_BEST: v->showBest = true; v->bestScroll = 0; break;
 			case MB_HOTKEYS: v->showHotkeys = true; break;
+			case MB_SWAP: out->swapScreens = true; break;
 			case MB_REWIND: out->rewind = true; break;
 			case MB_CLEARMAP: out->clearMap = true; break;
 			}
@@ -1286,6 +1289,7 @@ static void itemsTab(const GsState* st, const UiView* v) {
 static void menuTab(const UiView* v) {
 	for (int i = 0; i < MB_COUNT; ++i) {
 		if (i == MB_HOTKEYS && !uiShowHotkeys) continue;
+		if (i == MB_SWAP && !uiShowSwap) continue;
 		int x = MENU_BX(i), y = MENU_BY(i);
 		bool on = (i == MB_FAST && v->fastForward) || (i == MB_HIDEMENU && v->hideMenus) || (i == MB_AUTOSAVE && v->autoSave) || (i == MB_MUTE && v->muteSlow);
 		gPanel(x, y, MENU_W, MENU_H, on ? C_ACTIVE_T : C_PANEL_T, on ? C_ACTIVE_B : C_PANEL_B, on ? C_GOLD : C_GOLD_DIM);

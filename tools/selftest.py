@@ -132,6 +132,14 @@ def main():
         check('TLA: 18 Djinn per element', 'djinn owned 3ffff 3ffff 3ffff 3ffff' in o, o[-200:])
         o = tp('taf_35372.state')
         check('TLA: Isaac leads a party of the original four', 'member 0 Isaac' in o and 'member 3 Mia' in o, o[:300])
+        # the opening of a new game (no password): the save-data party list is still empty, the game's second copy holds the party (regression: four Isaacs)
+        for st, want, label in (('taf_prologue.state', ('party=3', 'member 0 Felix', 'member 1 Jenna', 'member 2 Mia'), 'Felix, Jenna, Mia at the Venus Lighthouse'),
+                                ('taf_prologue_jenna.state', ('party=1', 'member 0 Jenna'), 'Jenna alone once she leads')):
+            if os.path.exists(os.path.join(B, st)):
+                o = tp(st)
+                check('TLA opening (%s): %s' % (st, label), all(w in o for w in want) and 'Isaac' not in o, o[:300])
+            else:
+                print('  skipped: build/%s not found (made by running a new game on the desktop build, see docs/LOST_AGE.md)' % st)
         o = tp('taf_4716.state')
         check('TLA: renamed lead and Sheba read', 'member 0 Feliz' in o and 'member 2 Sheba' in o, o[:300])
         want = {'fight': 'phase=1 top=1 cmd=0', 'cmd': 'phase=1 top=0 cmd=0', 'cmdpsy': 'phase=1 top=0 cmd=1', 'list': 'phase=2', 'target': 'phase=3 top=0 cmd=-1 target=0'}

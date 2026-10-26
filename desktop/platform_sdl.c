@@ -435,6 +435,7 @@ static const char* padModePath(void) {
 }
 
 static bool swapPressed;
+void plSwapScreens(void) { swapPressed = true; }   // handled on the next poll, like the W key
 static bool backPressed;
 static float tapX, tapY;
 static int tapHold;
@@ -499,6 +500,7 @@ void plPollInput(PlInput* in) {
 	}
 	flipWas = flipNow;
 	static bool swapWas;
+	uiShowSwap = dualScreen;   // the Menu tab shows "Swap screens" while two displays are in use
 	if (((swapKey && !swapWas) || swapPressed) && dualScreen) {
 		swapPressed = false;
 		swapScreens = !swapScreens;

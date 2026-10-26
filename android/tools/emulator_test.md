@@ -7,4 +7,5 @@ Install `emulator` and `system-images;android-34;google_apis;x86_64` with `sdkma
     adb shell am start -n com.exhilo.goldensundualscreen/.MainActivity
     adb exec-out screencap -p > shot.png
 
-`adb shell input tap x y` works for the UI; the debug APK also contains an x86_64 library for this. Rotate with `adb shell settings put system user_rotation 1`.
+`adb shell input tap x y` works for the UI; the debug APK also contains an x86_64 library for this. The README picture is built from three screenshots by `tools/makepreview_android.ps1` (`previews/android/a1_pick_portrait.png`, `a2_game_portrait.png`, `a3_game_landscape.png`).
+Rotate with `adb shell settings put system user_rotation 1`.
